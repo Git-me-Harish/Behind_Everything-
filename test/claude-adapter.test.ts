@@ -107,3 +107,38 @@ describe('Claude Code adapter', () => {
     expect(p.parse('null', 2)).toEqual([]);
   });
 });
+
+describe('Claude Code adapter — inspector payloads', () => {
+  const { events } = parseAll(demoSession().main.jsonl());
+  it('keeps unified-diff lines for edits', () => {
+    const r = events.find(e => e.correlation?.call_id === 't-edit1' && e.status === 'succeeded')!;
+    expect(r.payload?.patch).toEqual(['@@ -1,1 +1,2 @@', '-a', '+b', '+c']);
+  });
+  it('keeps the end of long command output', () => {
+    const p = createClaudeParser('f');
+    const long = 'x'.repeat(10_000) + '\nTests 3 failed';
+    const lines = [
+      { type: 'assistant', uuid: 'a1', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z', message: { id: 'm', content: [{ type: 'tool_use', id: 'c', name: 'Bash', input: { command: 'pnpm test' } }] } },
+      { type: 'user', uuid: 'u1', sessionId: SESSION, timestamp: '2026-10-29T10:00:01Z', message: { content: [{ type: 'tool_result', tool_use_id: 'c', content: long, is_error: true }] }, toolUseResult: { stdout: long, stderr: '' } },
+    ];
+    const out = lines.flatMap((l, i) => p.parse(JSON.stringify(l), i + 1));
+    const output = String(out.at(-1)!.payload?.output);
+    expect(output.length).toBeLessThan(4200);
+    expect(output.endsWith('Tests 3 failed')).toBe(true);
+  });
+});
+
+describe('Claude Code adapter — prompt context', () => {
+  const prompt = (content: unknown) => parseAll(JSON.stringify({ type: 'user', uuid: 'u', promptId: 'p', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z', origin: { kind: 'human' }, message: { role: 'user', content } })).events;
+
+  it('strips IDE context tags from the prompt and records which were present', () => {
+    const ev = prompt([{ type: 'text', text: '<ide_opened_file>The user opened src/cli.ts</ide_opened_file>' }, { type: 'text', text: 'Fix the CLI flags' }]);
+    const p = ev.find(e => e.kind === 'user.prompt')!;
+    expect(p.summary).toBe('Fix the CLI flags');
+    expect(p.payload).toMatchObject({ text: 'Fix the CLI flags', context: ['ide_opened_file'] });
+  });
+
+  it('does not start a turn for context-only messages', () => {
+    expect(prompt('<system-reminder>note</system-reminder>').some(e => e.kind === 'turn.start')).toBe(false);
+  });
+});

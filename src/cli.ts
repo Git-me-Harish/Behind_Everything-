@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DEFAULT_PORT, startCollector } from './collector/index.js';
 import type { StoredEvent } from './collector/store.js';
@@ -11,6 +15,7 @@ Usage: behind-everything [options]
       --since <days>   Load sessions active in the last N days (default 7)
       --retention <d>  Keep stored sessions for N days (default 30)
   -q, --quiet          Don't print the live event feed
+      --no-open        Don't open the browser
   -h, --help           Show this help
 `;
 
@@ -20,6 +25,7 @@ const { values } = parseArgs({
     since: { type: 'string' },
     retention: { type: 'string' },
     quiet: { type: 'boolean', short: 'q' },
+    'no-open': { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
   },
 });
@@ -48,17 +54,35 @@ function print(events: StoredEvent[]) {
   }
 }
 
+// The UI is built next to the compiled CLI (dist/web); when running from source, use the same build.
+const here = path.dirname(fileURLToPath(import.meta.url));
+const webRoot = [path.join(here, 'web'), path.join(here, '..', 'dist', 'web')].find(d => fs.existsSync(path.join(d, 'index.html')));
+
+function openBrowser(url: string) {
+  const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
+    : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+  spawn(cmd, args, { stdio: 'ignore', detached: true, windowsVerbatimArguments: true }).on('error', () => {}).unref();
+}
+
 const port = values.port ? Number(values.port) : DEFAULT_PORT;
 try {
   const c = await startCollector({
     port,
     sinceDays: values.since ? Number(values.since) : undefined,
     retentionDays: values.retention ? Number(values.retention) : undefined,
+    webRoot,
+    devOrigins: process.env.BE_DEV_ORIGIN ? [process.env.BE_DEV_ORIGIN] : undefined,
     onEvents: values.quiet ? undefined : print,
   });
   const sessions = c.store.sessions();
   process.stdout.write(`${paint(1, 'Behind Everything')} collector on ${paint(36, c.url)}\n`);
   process.stdout.write(`Watching Claude Code transcripts · ${sessions.length} session(s) loaded${c.pruned ? ` · pruned ${c.pruned} old events` : ''}\n`);
+  if (webRoot) {
+    process.stdout.write(`Open ${paint(36, c.url)} to see it live\n`);
+    if (!values['no-open'] && !process.env.BE_DEV_ORIGIN) openBrowser(c.url);
+  } else {
+    process.stdout.write(paint(33, "UI not built yet — run 'pnpm build:web'. The API works meanwhile.\n"));
+  }
   process.stdout.write(paint(90, 'Waiting for live activity… (Ctrl+C to stop)\n'));
   const stop = async () => { await c.close(); process.exit(0); };
   process.on('SIGINT', stop);
