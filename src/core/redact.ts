@@ -51,3 +51,10 @@ export function redactValue<T>(value: T, path = '', out: Redaction[] = []): T {
 export function truncate(text: string, max = 4000): string {
   return text.length <= max ? text : `${text.slice(0, max)}… [${text.length - max} more chars]`;
 }
+
+/** Like `truncate`, but keeps the end too — test runners and compilers print their verdict last. */
+export function clip(text: string, max = 4000): string {
+  if (text.length <= max) return text;
+  const head = Math.floor(max / 4);
+  return `${text.slice(0, head)}\n… [${text.length - max} chars omitted] …\n${text.slice(text.length - (max - head))}`;
+}

@@ -29,16 +29,24 @@ export class Store {
     `);
   }
 
-  /** Inserts events, skipping ones already stored. Returns only the new events, with their sequence numbers. */
+  /**
+   * Inserts events. An event already stored keeps its sequence number but takes the new content, so
+   * re-reading a transcript with an improved adapter upgrades history. Returns only the new events.
+   */
   insert(events: CanonicalEvent[]): StoredEvent[] {
     const insert = this.db.prepare('INSERT OR IGNORE INTO events (id, session_id, seq, ts, kind, json) VALUES (?, ?, ?, ?, ?, ?)');
+    const update = this.db.prepare('UPDATE events SET ts = ?, kind = ?, json = ? WHERE id = ? AND json <> ?');
     const bump = this.db.prepare('UPDATE sessions SET event_count = event_count + ? WHERE id = ?');
     const added: StoredEvent[] = [];
     this.db.transaction(() => {
       const counts = new Map<string, number>();
       for (const e of events) {
         const seq = this.nextSeq(e.session_id);
-        if (insert.run(e.id, e.session_id, seq, e.ts, e.kind, JSON.stringify(e)).changes === 0) continue;
+        const json = JSON.stringify(e);
+        if (insert.run(e.id, e.session_id, seq, e.ts, e.kind, json).changes === 0) {
+          update.run(e.ts, e.kind, json, e.id, json);
+          continue;
+        }
         this.seqs.set(e.session_id, seq);
         added.push({ ...e, seq });
         counts.set(e.session_id, (counts.get(e.session_id) ?? 0) + 1);
