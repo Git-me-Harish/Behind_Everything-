@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.1 plan · 2026-10-29
+Status: v0.2 · 2026-10-29 — Phase 0 + 1 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md))
 
 ---
 
@@ -174,29 +174,26 @@ Reference 2 is the target: pastel isometric rooms, crisp pill labels with status
 |---|---|---|
 | Language | TypeScript everywhere | One schema shared by collector, adapters, reducer, UI |
 | Monorepo | pnpm workspaces | Already installed; strict deps |
-| Runtime | Node 20 LTS (22 recommended) | Installed; fs.watch recursive on Windows |
+| Runtime | Node ≥ 22 (20 works, EOL) | Recursive fs.watch on all platforms |
 | Validation | zod | Schema → types + runtime validation of adapter output |
 | Server | Node `http` + `ws` | Two endpoints (hook POST, WS) don't justify a framework |
-| Storage | `better-sqlite3` (WAL) | Synchronous, fast, prebuilt Windows binaries; swap to `node:sqlite` on Node ≥22.5 |
+| Storage | `better-sqlite3@12` (WAL) | Synchronous, fast; prebuilt binaries for Node 22/24 (Node 20 is EOL and compiles from source) |
 | Client | Vite + React 18 + `@react-three/fiber` + `drei` | See §6 |
 | Client state | zustand | Tiny, works outside React for the WS stream |
 | Tests | vitest; Playwright for UI smoke | Fixture-driven adapter contract tests are the backbone |
 | Packaging | `npx behind-everything` (single CLI that starts collector + opens browser) | Matches "install → first live session" metric |
 
 ### Repo layout
+One package until a second deployable needs its own dependencies (YAGNI over premature workspaces):
 ```
-packages/
-  schema/        CanonicalEvent zod schema + types
-  classifier/    tool/command → semantic kind
-  adapters/      claude-code/  codex/  copilot-cli/   (pure parsers + fixtures/)
-  redact/        rules + tests
-  state/         reducer, phase machine, zone metrics, attention rules
-apps/
-  collector/     discovery, tailer, hook endpoint, store, ws, CLI entry
-  hook/          be-hook forwarder + `behind-everything hooks install|uninstall`
-  web/           world, timeline, inspector, coverage
-fixtures/        recorded, redacted real sessions (normal, failing, interrupted, approval, subagents)
-docs/
+src/
+  core/          schema, classifier, redaction, state engine (shared by collector and UI)
+  adapters/      claude-code/ (codex/, copilot-cli/ in Phase 4) — pure parsers + discovery
+  collector/     tailer, SQLite store, localhost HTTP + WebSocket server
+  cli.ts         `behind-everything` entry point
+web/             UI (Phase 2+)
+test/            unit, integration and fixture builders; local-transcripts drift test
+docs/            PLAN, CAPABILITIES
 ```
 
 ---

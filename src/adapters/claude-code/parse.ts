@@ -79,7 +79,8 @@ export function createClaudeParser(file: string) {
       case 'assistant': parseAssistant(o, out, ev); break;
       case 'ai-title': case 'summary': {
         const title = o.aiTitle ?? o.summary;
-        if (typeof title === 'string' && session) {
+        // Claude Code rewrites the title record often; only a change is an event.
+        if (typeof title === 'string' && session && title !== session.title) {
           session.title = title;
           out.push(ev(o, 'title', { kind: 'session.meta', actor: 'system', summary: title, payload: { title } }));
         }

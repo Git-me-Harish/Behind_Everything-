@@ -8,7 +8,7 @@ const COMMAND_RULES: Array<[EventKind, RegExp]> = [
   ['dependency.change', /^((npm|pnpm|yarn|bun) (install|i|ci|add|remove|rm|uninstall|update|upgrade|up|rebuild)|pip3? install|poetry (add|install|remove)|uv (add|sync|remove|pip install)|cargo (add|remove)|go (get|mod tidy)|gem install|bundle install|composer (require|install)|dotnet add package)\b/],
 ];
 
-const WRAPPERS = /^(npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|python3? -m|time|sudo|env|command|exec)\s+/;
+const WRAPPERS = /^(npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|python3? -m|time|sudo|env|command|exec|timeout \S+|do|then|else|!|\{)\s+/;
 const ENV_ASSIGN = /^([A-Za-z_][A-Za-z0-9_]*=("[^"]*"|'[^']*'|\S*)\s+)+/;
 
 /** Splits a shell line into the commands actually invoked, ignoring heredoc bodies and env prefixes. */

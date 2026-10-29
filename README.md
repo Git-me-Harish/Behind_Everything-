@@ -13,7 +13,38 @@ Every signal is labelled **observed**, **inferred** or **unavailable**. Nothing 
 
 ## Status
 
-Pre-alpha. Phase 1 (event foundation, Claude Code adapter) in progress.
+Pre-alpha. Phase 1 done for Claude Code: live capture, normalisation, redaction, local storage and a streaming API.
+The visual world arrives in Phases 2–3. What we can and can't see: [docs/CAPABILITIES.md](docs/CAPABILITIES.md).
+
+## Quick start
+
+Requires Node 22+ (Node 20 works but needs a C++ toolchain for SQLite) and pnpm.
+
+```sh
+pnpm install
+pnpm start          # collector on http://127.0.0.1:47821 + live event feed in the terminal
+```
+
+Then use Claude Code as usual in any project — its activity streams in. Nothing to configure in Claude Code.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /api/health` | Collector status and sources |
+| `GET /api/sessions` | Sessions, most recent first |
+| `GET /api/sessions/:id/events?after=<seq>` | Canonical events for a session |
+| `GET /api/events/:id/evidence` | The raw (redacted) provider record behind an event |
+| `WS /ws` | Live `events` and `sessions` messages |
+
+Data lives in `~/.behind-everything/events.sqlite` (override with `BE_HOME`); sessions are kept 30 days (`--retention`).
+The server binds to `127.0.0.1` only and refuses requests from other origins.
+
+## Development
+
+```sh
+pnpm typecheck
+pnpm test           # unit + integration tests on synthetic fixtures
+pnpm test:local     # drift check: parses your real ~/.claude transcripts (never leaves your machine)
+```
 
 ## Contributing
 

@@ -79,6 +79,12 @@ describe('Claude Code adapter', () => {
     expect(events.filter(e => e.kind === 'system.unknown')).toHaveLength(0);
   });
 
+  it('emits a title only when it changes', () => {
+    const t = (title: string) => JSON.stringify({ type: 'ai-title', aiTitle: title, sessionId: SESSION });
+    const { events: ev } = parseAll([t('A'), t('A'), t('B'), t('B')].join('\n'));
+    expect(ev.filter(e => e.kind === 'session.meta').map(e => e.summary)).toEqual(['A', 'B']);
+  });
+
   it('flags unknown record types as drift', () => {
     const { events: ev } = parseAll(JSON.stringify({ type: 'brand-new-thing', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z' }));
     expect(ev.map(e => e.kind)).toEqual(['session.start', 'system.unknown']);
