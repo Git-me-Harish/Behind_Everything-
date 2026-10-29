@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+import { parseArgs } from 'node:util';
+import { DEFAULT_PORT, startCollector } from './collector/index.js';
+import type { StoredEvent } from './collector/store.js';
+
+const HELP = `behind-everything — see what your AI coding agent is actually doing
+
+Usage: behind-everything [options]
+
+  -p, --port <n>       Port on 127.0.0.1 (default ${DEFAULT_PORT})
+      --since <days>   Load sessions active in the last N days (default 7)
+      --retention <d>  Keep stored sessions for N days (default 30)
+  -q, --quiet          Don't print the live event feed
+  -h, --help           Show this help
+`;
+
+const { values } = parseArgs({
+  options: {
+    port: { type: 'string', short: 'p' },
+    since: { type: 'string' },
+    retention: { type: 'string' },
+    quiet: { type: 'boolean', short: 'q' },
+    help: { type: 'boolean', short: 'h' },
+  },
+});
+
+if (values.help) {
+  process.stdout.write(HELP);
+  process.exit(0);
+}
+
+const color = process.stdout.isTTY && !process.env.NO_COLOR;
+const paint = (code: number, s: string) => (color ? `\x1b[${code}m${s}\x1b[0m` : s);
+const STATUS: Record<string, string> = { started: paint(36, '▶'), pending: paint(33, '?'), succeeded: paint(32, '✓'), failed: paint(31, '✗'), cancelled: paint(90, '■') };
+const QUIET_KINDS = new Set(['usage.tokens', 'assistant.reasoning', 'session.start', 'session.meta']);
+
+// The first batch replays recent history; only print what happens after startup.
+const liveFrom = new Date().toISOString();
+
+function print(events: StoredEvent[]) {
+  for (const e of events) {
+    if (QUIET_KINDS.has(e.kind) || e.ts < liveFrom) continue;
+    const time = e.ts.slice(11, 19);
+    const status = e.status ? STATUS[e.status] ?? ' ' : ' ';
+    const agent = e.agent_id === 'main' ? '' : paint(35, `[${e.agent_id.slice(0, 8)}] `);
+    const extra = e.exit_code ? paint(31, ` exit ${e.exit_code}`) : e.duration_ms && e.duration_ms > 2000 ? paint(90, ` ${(e.duration_ms / 1000).toFixed(1)}s`) : '';
+    process.stdout.write(`${paint(90, time)} ${status} ${agent}${paint(1, e.kind.padEnd(18))} ${e.summary}${extra}\n`);
+  }
+}
+
+const port = values.port ? Number(values.port) : DEFAULT_PORT;
+try {
+  const c = await startCollector({
+    port,
+    sinceDays: values.since ? Number(values.since) : undefined,
+    retentionDays: values.retention ? Number(values.retention) : undefined,
+    onEvents: values.quiet ? undefined : print,
+  });
+  const sessions = c.store.sessions();
+  process.stdout.write(`${paint(1, 'Behind Everything')} collector on ${paint(36, c.url)}\n`);
+  process.stdout.write(`Watching Claude Code transcripts · ${sessions.length} session(s) loaded${c.pruned ? ` · pruned ${c.pruned} old events` : ''}\n`);
+  process.stdout.write(paint(90, 'Waiting for live activity… (Ctrl+C to stop)\n'));
+  const stop = async () => { await c.close(); process.exit(0); };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+    process.stderr.write(`Port ${port} is already in use — is Behind Everything already running? Try --port.\n`);
+    process.exit(1);
+  }
+  throw err;
+}
