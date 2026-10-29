@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.2 · 2026-10-29 — Phase 0 + 1 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md))
+Status: v0.3 · 2026-10-29 — Phases 0–2 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 3, the 3D world
 
 ---
 
@@ -213,6 +213,12 @@ docs/            PLAN, CAPABILITIES
 **Phase 2 — First useful UI (timeline-first)**
 - Session list, live timeline, inspector with evidence + diffs, search/filter, pause/replay, coverage panel.
 - ✅ Exit: brief §15 acceptance criteria pass for Claude Code without the world.
+
+**Phase 2 — delivered notes**
+- Shipped beyond the original list: 2D workspace board (zones, live pills, agent avatars) as the bridge to Phase 3; attention list; delivery report; coverage dialog; keyboard shortcuts; light/dark; URL deep links.
+- List/detail split: the session list endpoint serves a precomputed light form; the inspector fetches full events. 10k-event session: 15.5 MB → 8.5 MB, server 1.3 s → 0.34 s, reducer 1.3 s → 0.25 s (running totals instead of rescanning files).
+- Truthfulness fix found in real use: piped test runs exit 0 — failures in their output are now counted as *inferred* failures.
+- Tests: view-model unit tests, replay equivalence across snapshot boundaries, Playwright end-to-end against the real CLI (live WebSocket, replay, keyboard, dialogs, zero console errors).
 
 **Phase 3 — The world**
 - Isometric scene, 9 zones, pills bound to `SessionState`, agent avatars + pathing, subagents, click-to-focus camera, replay through the world, reduced-motion mode.
