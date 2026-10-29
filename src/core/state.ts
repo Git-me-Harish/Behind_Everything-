@@ -1,4 +1,5 @@
 import type { CanonicalEvent, EventKind, SourceClass } from './schema.js';
+import { inferredFailure } from './verdict.js';
 
 export const ZONES = ['mission', 'explorer', 'planning', 'implementation', 'lab', 'repair', 'tooling', 'approval', 'review'] as const;
 export type ZoneId = (typeof ZONES)[number];
@@ -42,6 +43,16 @@ export interface Attention {
   resolved: boolean;
 }
 
+export interface RunStats {
+  runs: number;
+  passed: number;
+  failed: number;
+  last?: 'passed' | 'failed';
+  /** The last verdict came from the output text, not the exit code. */
+  last_inferred?: boolean;
+  last_event?: string;
+}
+
 export interface SessionState {
   session_id: string;
   started_at?: string;
@@ -52,9 +63,11 @@ export interface SessionState {
   zones: Record<ZoneId, ZoneState>;
   files: Record<string, FileState>;
   searches: number;
+  /** Running totals over `files`, so zone labels never rescan every file (sessions touch hundreds). */
+  totals: { files_read: number; files_edited: number; added: number; removed: number };
   commands: { total: number; failed: number; dependencies: number; running: Record<string, { summary: string; kind: EventKind; started_at: string; agent_id: string }> };
-  tests: { runs: number; passed: number; failed: number; last?: 'passed' | 'failed'; last_event?: string };
-  builds: { runs: number; passed: number; failed: number; last?: 'passed' | 'failed'; last_event?: string };
+  tests: RunStats;
+  builds: RunStats;
   plan: { items: Array<{ text: string; status: string }>; proposals: number; last_event?: string };
   approvals: { pending: Record<string, { summary: string; ts: string; event: string }>; approved: number; blocked: number };
   repair: { active: boolean; failures: number; reruns: number; evidence: string[] };
@@ -71,7 +84,7 @@ export interface SessionState {
 export function initialState(session_id: string): SessionState {
   const zones = Object.fromEntries(ZONES.map(id => [id, { id, status: 'idle', label: '', count: 0, source_class: 'observed' }])) as unknown as Record<ZoneId, ZoneState>;
   const s: SessionState = {
-    session_id, turn: { index: 0, open: false, edits: {} }, agents: {}, zones, files: {}, searches: 0,
+    session_id, turn: { index: 0, open: false, edits: {} }, agents: {}, zones, files: {}, searches: 0, totals: { files_read: 0, files_edited: 0, added: 0, removed: 0 },
     commands: { total: 0, failed: 0, dependencies: 0, running: {} },
     tests: { runs: 0, passed: 0, failed: 0 }, builds: { runs: 0, passed: 0, failed: 0 },
     plan: { items: [], proposals: 0 }, approvals: { pending: {}, approved: 0, blocked: 0 },
@@ -120,16 +133,22 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
       if (started) setPhase(agent, 'exploring', e);
       if (e.status === 'succeeded') {
         if (e.kind === 'file.search') s.searches++;
-        else for (const r of e.resources ?? []) if (r.type === 'file') touchFile(s, r.ref, e).reads++;
+        else for (const r of e.resources ?? []) if (r.type === 'file') {
+          const f = touchFile(s, r.ref, e);
+          if (f.reads++ === 0) s.totals.files_read++;
+        }
       }
       break;
     case 'file.edit':
       if (started) setPhase(agent, s.repair.active ? 'repairing' : 'implementing', e, s.repair.active ? 'inferred' : 'observed', s.repair.active ? s.repair.evidence : []);
       if (e.status === 'succeeded') for (const r of e.resources ?? []) if (r.type === 'file') {
         const f = touchFile(s, r.ref, e);
-        f.edits++;
-        f.added += num(e.payload?.added);
-        f.removed += num(e.payload?.removed);
+        if (f.edits++ === 0) s.totals.files_edited++;
+        const added = num(e.payload?.added), removed = num(e.payload?.removed);
+        f.added += added;
+        f.removed += removed;
+        s.totals.added += added;
+        s.totals.removed += removed;
         const n = (s.turn.edits[r.ref] = (s.turn.edits[r.ref] ?? 0) + 1);
         if (n === EDIT_LOOP_THRESHOLD) attend(s, `loop:${s.turn.index}:${r.ref}`, 'warn', `${r.ref} edited ${n} times this turn — possible loop`, e, 'inferred');
       }
@@ -144,7 +163,10 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
       if (e.status === 'succeeded' || e.status === 'failed') {
         bucket.runs++;
         bucket.last_event = e.id;
-        if (e.status === 'succeeded') {
+        // Exit 0 but the output reports failures (usually a piped command): count it as a failure, labelled inferred.
+        const hint = inferredFailure(e);
+        bucket.last_inferred = hint !== undefined;
+        if (e.status === 'succeeded' && !hint) {
           bucket.passed++;
           bucket.last = 'passed';
           resolve(s, `fail:${e.kind}`);
@@ -155,7 +177,8 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
           s.repair.active = true;
           s.repair.failures++;
           s.repair.evidence = [...s.repair.evidence, e.id].slice(-10);
-          attend(s, `fail:${e.kind}`, 'error', `${label} failed: ${e.summary}`, e);
+          if (hint) attend(s, `fail:${e.kind}`, 'error', `${label} likely failed: output says “${hint}” although the exit code was 0`, e, 'inferred');
+          else attend(s, `fail:${e.kind}`, 'error', `${label} failed: ${e.summary}`, e);
         }
       }
       trackCommand(s, e, started, callId, agent);
@@ -304,25 +327,26 @@ function refreshZones(s: SessionState) {
   const set = (id: ZoneId, label: string, count: number, status: ZoneStatus, source_class: SourceClass = 'observed', last_event?: string) => {
     z[id] = { id, label, count, status: status === 'idle' && occupied.has(id) ? 'active' : status === 'ok' && occupied.has(id) ? 'active' : status, source_class, last_event };
   };
-  const files = Object.values(s.files);
-  const edited = files.filter(f => f.edits > 0);
-  const reads = files.filter(f => f.reads > 0).length;
+  const { files_read: reads, files_edited: edited, added, removed } = s.totals;
   const done = s.plan.items.filter(i => i.status === 'completed').length;
   const pending = Object.keys(s.approvals.pending).length;
   const openIssues = s.attention.filter(a => !a.resolved && a.severity !== 'info').length;
 
   set('mission', s.turn.index ? `TURN ${s.turn.index}${s.turn.open ? ' · LIVE' : ''}` : 'WAITING', s.turn.index, s.turn.open ? 'active' : s.turn.index ? 'ok' : 'idle');
-  set('explorer', `${reads} READ · ${s.searches} SEARCHES`, reads + s.searches, reads + s.searches ? 'ok' : 'idle');
+  set('explorer', `${reads} READ · ${plural(s.searches, 'SEARCH', 'SEARCHES')}`, reads + s.searches, reads + s.searches ? 'ok' : 'idle');
   set('planning', s.plan.items.length ? `PLAN ${done}/${s.plan.items.length}` : s.plan.proposals ? `${s.plan.proposals} PLAN${s.plan.proposals > 1 ? 'S' : ''}` : 'NO PLAN', s.plan.items.length, s.plan.items.length || s.plan.proposals ? 'ok' : 'idle', 'observed', s.plan.last_event);
-  set('implementation', `${edited.length} FILES · +${sum(edited, 'added')} −${sum(edited, 'removed')}`, edited.length, edited.length ? 'ok' : 'idle');
+  set('implementation', `${plural(edited, 'FILE')} · +${added} −${removed}`, edited, edited ? 'ok' : 'idle');
   set('lab', s.tests.runs || s.builds.runs ? `TESTS ${s.tests.passed}✓ ${s.tests.failed}✗ · CHECKS ${s.builds.passed}✓ ${s.builds.failed}✗` : 'NO RUNS', s.tests.runs + s.builds.runs,
-    s.tests.last === 'failed' || s.builds.last === 'failed' ? 'error' : s.tests.runs + s.builds.runs ? 'ok' : 'idle', 'observed', s.tests.last_event ?? s.builds.last_event);
+    s.tests.last === 'failed' || s.builds.last === 'failed' ? 'error' : s.tests.runs + s.builds.runs ? 'ok' : 'idle',
+    s.tests.last_inferred || s.builds.last_inferred ? 'inferred' : 'observed', s.tests.last_event ?? s.builds.last_event);
   set('repair', s.repair.active ? `~ REPAIRING · ${s.repair.reruns} RERUNS` : s.repair.failures ? `~ ${s.repair.failures} FIXED` : 'CLEAR', s.repair.failures, s.repair.active ? 'warn' : s.repair.failures ? 'ok' : 'idle', 'inferred', s.repair.evidence.at(-1));
-  set('tooling', `${s.commands.total} CMDS · ${s.commands.dependencies} DEPS${s.web ? ` · ${s.web} WEB` : ''}${s.mcp ? ` · ${s.mcp} MCP` : ''}`, s.commands.total + s.web + s.mcp,
+  set('tooling', `${plural(s.commands.total, 'CMD')} · ${plural(s.commands.dependencies, 'DEP')}${s.web ? ` · ${s.web} WEB` : ''}${s.mcp ? ` · ${s.mcp} MCP` : ''}`, s.commands.total + s.web + s.mcp,
     Object.keys(s.commands.running).length ? 'active' : s.commands.total + s.web + s.mcp ? 'ok' : 'idle');
   set('approval', pending ? `${pending} WAITING` : `${s.approvals.approved} APPROVED · ${s.approvals.blocked} BLOCKED`, pending, pending ? 'warn' : s.approvals.approved + s.approvals.blocked ? 'ok' : 'idle');
-  set('review', s.turn.index && !s.turn.open ? `${edited.length} CHANGED · ${openIssues} OPEN` : edited.length ? `${edited.length} CHANGED` : 'NOTHING YET', edited.length,
+  set('review', s.turn.index && !s.turn.open ? `${edited} CHANGED · ${openIssues} OPEN` : edited ? `${edited} CHANGED` : 'NOTHING YET', edited,
     s.turn.index && !s.turn.open ? (openIssues ? 'warn' : 'ok') : 'idle');
 }
 
-const sum = (files: FileState[], key: 'added' | 'removed') => files.reduce((n, f) => n + f[key], 0);
+/** "1 FILE", "3 FILES" — zone labels read as sentences. */
+const plural = (n: number, one: string, many = `${one}S`) => `${n} ${n === 1 ? one : many}`;
+

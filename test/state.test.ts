@@ -58,7 +58,7 @@ describe('state engine', () => {
     expect(final.tests).toMatchObject({ runs: 2, passed: 1, failed: 1, last: 'passed' });
     expect(final.approvals).toMatchObject({ approved: 1, blocked: 1, pending: {} });
     expect(final.plan.items).toHaveLength(2);
-    expect(final.zones.implementation.label).toBe('1 FILES · +3 −2');
+    expect(final.zones.implementation.label).toBe('1 FILE · +3 −2');
   });
 
   it('holds questions as pending in the approval zone until answered', () => {

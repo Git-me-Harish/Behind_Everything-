@@ -3,7 +3,7 @@ import { classifyClaudeTool } from '../../core/classify.js';
 import { clip, redactValue, truncate, type Redaction } from '../../core/redact.js';
 import type { CanonicalEvent, EventKind, Resource, SessionInfo } from '../../core/schema.js';
 
-export const ADAPTER = { name: 'claude-code-log', version: '2', capture: 'log' } as const;
+export const ADAPTER = { name: 'claude-code-log', version: '3', capture: 'log' } as const;
 
 /** Record types we deliberately ignore; anything else unknown is surfaced as `system.unknown` (format drift). */
 const IGNORED = new Set([
@@ -14,6 +14,7 @@ const IGNORED = new Set([
 
 const DENIED = /^(The user doesn't want to proceed|Permission to use .* (has been )?denied|.*auto mode cannot determine)/s;
 const INTERRUPTED = /\[Request interrupted by user/;
+const CONTEXT_TAGS = /<(ide_[\w-]+|system-reminder)>[\s\S]*?<\/\1>/g;
 
 interface PendingCall { kind: EventKind; tool: string; input: Record<string, unknown>; ts: string; resources: Resource[]; summary: string }
 
@@ -110,11 +111,15 @@ export function createClaudeParser(file: string) {
       if (o.isMeta || o.isCompactSummary || o.isSidechain) return;
       // Background-task notifications arrive as user lines but are not prompts.
       if (o.origin?.kind && o.origin.kind !== 'human') return;
-      const text = blocks.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      if (!text || text.startsWith('<local-command-') || text.startsWith('<system-reminder>')) return;
+      const raw = blocks.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      if (!raw || raw.startsWith('<local-command-')) return;
+      // IDE integrations wrap editor context (open file, selection) into the prompt; that is not what the user typed.
+      const context: string[] = [];
+      const text = raw.replace(CONTEXT_TAGS, (_m, tag: string) => { context.push(tag); return ''; }).trim();
+      if (!text) return;
       turnId = o.promptId ?? o.uuid;
       out.push(ev(o, 'turn-start', { kind: 'turn.start', actor: 'user', summary: 'Turn started' }));
-      out.push(ev(o, 'prompt', { kind: 'user.prompt', actor: 'user', summary: oneLine(text), payload: { text: truncate(text) } }));
+      out.push(ev(o, 'prompt', { kind: 'user.prompt', actor: 'user', summary: oneLine(text), payload: { text: truncate(text), ...(context.length ? { context } : {}) } }));
       return;
     }
     if (o.promptId && !o.isSidechain) turnId = o.promptId;

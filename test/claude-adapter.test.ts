@@ -127,3 +127,18 @@ describe('Claude Code adapter — inspector payloads', () => {
     expect(output.endsWith('Tests 3 failed')).toBe(true);
   });
 });
+
+describe('Claude Code adapter — prompt context', () => {
+  const prompt = (content: unknown) => parseAll(JSON.stringify({ type: 'user', uuid: 'u', promptId: 'p', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z', origin: { kind: 'human' }, message: { role: 'user', content } })).events;
+
+  it('strips IDE context tags from the prompt and records which were present', () => {
+    const ev = prompt([{ type: 'text', text: '<ide_opened_file>The user opened src/cli.ts</ide_opened_file>' }, { type: 'text', text: 'Fix the CLI flags' }]);
+    const p = ev.find(e => e.kind === 'user.prompt')!;
+    expect(p.summary).toBe('Fix the CLI flags');
+    expect(p.payload).toMatchObject({ text: 'Fix the CLI flags', context: ['ide_opened_file'] });
+  });
+
+  it('does not start a turn for context-only messages', () => {
+    expect(prompt('<system-reminder>note</system-reminder>').some(e => e.kind === 'turn.start')).toBe(false);
+  });
+});
