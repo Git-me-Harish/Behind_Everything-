@@ -1,0 +1,39 @@
+{
+  "name": "behind-everything",
+  "version": "0.1.0",
+  "description": "Live, local-first visualizer of what AI coding agents actually do.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "behind-everything": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:local": "BE_LOCAL_TRANSCRIPTS=1 vitest run test/local-transcripts.test.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.19.43",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}
