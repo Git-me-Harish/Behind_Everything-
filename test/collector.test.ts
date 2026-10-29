@@ -126,3 +126,24 @@ describe('collector end-to-end', () => {
     }
   }, 20_000);
 });
+
+describe('collector detail endpoint', () => {
+  it('lists light events and serves full ones by id', async () => {
+    const root = path.join(dir, 'projects');
+    const file = path.join(root, 'C--work-demo', `${SESSION}.jsonl`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, demoSession().main.jsonl());
+    const port = 48000 + Math.floor(Math.random() * 90);
+    const c = await startCollector({ port, claudeRoot: root, dbPath: path.join(dir, 'db.sqlite') });
+    try {
+      const list = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
+      const edit = list.find((e: any) => e.correlation?.call_id === 't-edit1' && e.status === 'succeeded');
+      expect(edit.payload.patch).toBeUndefined();
+      const full = await get(port, `/api/events/${encodeURIComponent(edit.id)}`);
+      expect(full.body.payload.patch).toEqual(['@@ -1,1 +1,2 @@', '-a', '+b', '+c']);
+      expect((await get(port, '/api/events/nope')).status).toBe(404);
+    } finally {
+      await c.close();
+    }
+  });
+});

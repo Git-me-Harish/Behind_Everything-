@@ -3,6 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { redactValue } from '../core/redact.js';
+import { liteEvent } from './lite.js';
 import type { Store, StoredEvent } from './store.js';
 
 export interface ServerOptions {
@@ -40,12 +41,17 @@ export function createServer(opts: ServerOptions) {
       if (m) {
         const id = decodeURIComponent(m[1]!);
         if (!opts.store.session(id)) return send(res, 404, { error: 'unknown session' });
-        return send(res, 200, opts.store.events(id, Number(url.searchParams.get('after') ?? 0)));
+        return sendRaw(res, opts.store.eventsJson(id, Number(url.searchParams.get('after') ?? 0)));
+      }
+      const one = /^\/api\/events\/([^/]+)$/.exec(url.pathname);
+      if (one) {
+        const e = opts.store.event(decodeURIComponent(one[1]!));
+        return e ? send(res, 200, e) : send(res, 404, { error: 'unknown event' });
       }
       const ev = /^\/api\/events\/([^/]+)\/evidence$/.exec(url.pathname);
       if (ev) return evidence(res, opts.store.event(decodeURIComponent(ev[1]!)));
       if (opts.webRoot) return serveStatic(res, opts.webRoot, url.pathname);
-      return send(res, 200, { name: 'behind-everything', api: ['/api/health', '/api/sessions', '/api/sessions/:id/events', '/api/events/:id/evidence', '/ws'] });
+      return send(res, 200, { name: 'behind-everything', api: ['/api/health', '/api/sessions', '/api/sessions/:id/events', '/api/events/:id', '/api/events/:id/evidence', '/ws'] });
     } catch (err) {
       return send(res, 500, { error: String(err) });
     }
@@ -65,7 +71,7 @@ export function createServer(opts: ServerOptions) {
     }),
     broadcast(events: StoredEvent[]) {
       if (!events.length) return;
-      const msg = JSON.stringify({ type: 'events', events });
+      const msg = JSON.stringify({ type: 'events', events: events.map(liteEvent) });
       for (const c of wss.clients as Set<WebSocket>) if (c.readyState === c.OPEN) c.send(msg);
     },
     broadcastSessions() {
@@ -105,6 +111,11 @@ function serveStatic(res: http.ServerResponse, root: string, pathname: string) {
   if (!fs.existsSync(file)) return send(res, 404, { error: 'not found' });
   res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream', 'x-content-type-options': 'nosniff' });
   fs.createReadStream(file).pipe(res);
+}
+
+function sendRaw(res: http.ServerResponse, json: string) {
+  res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  res.end(json);
 }
 
 function send(res: http.ServerResponse, status: number, body: unknown) {

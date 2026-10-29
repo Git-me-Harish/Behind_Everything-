@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { CanonicalEvent, SessionInfo } from '../core/schema.js';
+import { liteEvent } from './lite.js';
 
 export interface StoredEvent extends CanonicalEvent { seq: number }
 export interface SessionRow extends SessionInfo { event_count: number }
@@ -27,6 +28,9 @@ export class Store {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS events_by_session ON events (session_id, seq);
     `);
+    // v0.2: list-form JSON, precomputed so listing a session is string concatenation. Older rows are backfilled on read.
+    const cols = this.db.prepare('PRAGMA table_info(events)').all() as Array<{ name: string }>;
+    if (!cols.some(c => c.name === 'lite')) this.db.exec('ALTER TABLE events ADD COLUMN lite TEXT');
   }
 
   /**
@@ -34,8 +38,8 @@ export class Store {
    * re-reading a transcript with an improved adapter upgrades history. Returns only the new events.
    */
   insert(events: CanonicalEvent[]): StoredEvent[] {
-    const insert = this.db.prepare('INSERT OR IGNORE INTO events (id, session_id, seq, ts, kind, json) VALUES (?, ?, ?, ?, ?, ?)');
-    const update = this.db.prepare('UPDATE events SET ts = ?, kind = ?, json = ? WHERE id = ? AND json <> ?');
+    const insert = this.db.prepare('INSERT OR IGNORE INTO events (id, session_id, seq, ts, kind, json, lite) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const update = this.db.prepare('UPDATE events SET ts = ?, kind = ?, json = ?, lite = NULL WHERE id = ? AND json <> ?');
     const bump = this.db.prepare('UPDATE sessions SET event_count = event_count + ? WHERE id = ?');
     const added: StoredEvent[] = [];
     this.db.transaction(() => {
@@ -43,7 +47,7 @@ export class Store {
       for (const e of events) {
         const seq = this.nextSeq(e.session_id);
         const json = JSON.stringify(e);
-        if (insert.run(e.id, e.session_id, seq, e.ts, e.kind, json).changes === 0) {
+        if (insert.run(e.id, e.session_id, seq, e.ts, e.kind, json, JSON.stringify(liteEvent({ ...e, seq }))).changes === 0) {
           update.run(e.ts, e.kind, json, e.id, json);
           continue;
         }
@@ -78,6 +82,22 @@ export class Store {
   events(session_id: string, afterSeq = 0, limit = 100_000): StoredEvent[] {
     const rows = this.db.prepare('SELECT seq, json FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?').all(session_id, afterSeq, limit) as Array<{ seq: number; json: string }>;
     return rows.map(r => ({ ...JSON.parse(r.json), seq: r.seq }));
+  }
+
+  /** A session's events in list form, as a ready-to-send JSON array. */
+  eventsJson(session_id: string, afterSeq = 0): string {
+    const rows = this.db.prepare('SELECT id, seq, json, lite FROM events WHERE session_id = ? AND seq > ? ORDER BY seq').all(session_id, afterSeq) as Array<{ id: string; seq: number; json: string; lite: string | null }>;
+    const stale = rows.filter(r => r.lite === null);
+    if (stale.length) {
+      const backfill = this.db.prepare('UPDATE events SET lite = ? WHERE id = ?');
+      this.db.transaction(() => {
+        for (const r of stale) {
+          r.lite = JSON.stringify(liteEvent({ ...JSON.parse(r.json), seq: r.seq }));
+          backfill.run(r.lite, r.id);
+        }
+      })();
+    }
+    return `[${rows.map(r => r.lite).join(',')}]`;
   }
 
   event(id: string): StoredEvent | undefined {
