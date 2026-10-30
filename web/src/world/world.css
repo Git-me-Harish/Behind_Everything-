@@ -1,0 +1,106 @@
+/* ── The 3D workspace (loaded with the map chunk) ─────────────────────── */
+.world {
+  position: relative; flex: none; overflow: hidden; isolation: isolate;
+  /* Tall enough to read on a laptop, never taller than the screen; phones get a squarer map. */
+  height: clamp(280px, min(62vh, 64vw + 56px), 760px);
+  border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  background: radial-gradient(120% 90% at 50% 30%, color-mix(in srgb, var(--accent) 9%, var(--panel)) 0%, var(--panel-2) 62%, var(--panel-3) 100%);
+  /* Embedded in a scrolling page: one finger scrolls the page, the map takes two fingers (or expand it). */
+  touch-action: pan-x pan-y;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+.world:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.world canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.world.hovering canvas { cursor: pointer; }
+.world.dragging canvas, .world.dragging .wl { cursor: grabbing; }
+.app.map-expanded .world { position: fixed; inset: 52px 0 56px 0; z-index: 15; height: auto; border-radius: 0; border: 0; touch-action: none; }
+/* With the map full screen, the details panel floats over it at every width. */
+.app.map-expanded .inspector { position: fixed; right: 12px; top: 64px; bottom: 68px; width: min(440px, calc(100vw - 24px)); z-index: 20; border-radius: var(--radius); box-shadow: var(--shadow-lift); border: 1px solid var(--line); }
+
+.wl-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.wl { position: absolute; left: 0; top: 0; pointer-events: auto; border: 0; padding: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 5px; will-change: transform; }
+.wl:focus-visible { outline: none; }
+.wl:focus-visible .pill, .wl:focus-visible .agent-tag { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wl-room { padding-bottom: 6px; }
+.wl-room .pill { height: 26px; padding: 0 11px; font-size: 11px; gap: 7px; max-width: 280px; box-shadow: var(--shadow-lift); }
+.wl-room .pill-text { overflow: hidden; text-overflow: ellipsis; }
+.wl-room .badge { background: var(--zb); height: 22px; font-size: 10px; padding: 0 9px; box-shadow: 0 2px 6px color-mix(in srgb, var(--zb) 35%, transparent); }
+.wl-room[aria-pressed="true"] .badge { outline: 2px solid var(--zb); outline-offset: 2px; }
+.wl-room:hover .pill { border-color: var(--zb); }
+.wl-room.status-error .pill { border-color: color-mix(in srgb, var(--error) 55%, transparent); }
+.wl-room.status-idle .pill { opacity: 0.86; }
+/* Far away: room names only (plus anything that needs you); up close: everything. */
+.world.density-far .wl-room .pill { display: none; }
+.world.density-far .wl-room.status-error .pill,
+.world.density-far .wl-room.status-warn .pill,
+.world.density-far .wl-room[aria-pressed="true"] .pill { display: inline-flex; }
+.world.density-far .wl-room .badge { font-size: 9px; height: 19px; padding: 0 7px; gap: 4px; letter-spacing: 0.04em; }
+.world.density-mid .wl-room .pill { height: 23px; font-size: 10px; padding: 0 9px; letter-spacing: 0.02em; max-width: 210px; }
+/* Tiny (phones): each room is a round icon with a status dot; its name and status are in the button's label. */
+.wl-room .badge-dot { display: none; }
+.world.density-tiny .wl-room { padding-bottom: 2px; }
+.world.density-tiny .wl-room .pill { display: none; }
+.world.density-tiny .wl-room .badge { position: relative; width: 26px; height: 26px; padding: 0; justify-content: center; border-radius: 50%; }
+.world.density-tiny .wl-room .badge-name { display: none; }
+.world.density-tiny .wl-room .badge-dot { display: block; position: absolute; right: -2px; top: -2px; width: 9px; height: 9px; box-shadow: 0 0 0 2px var(--panel); }
+.world.density-tiny .wl-room .badge-dot:not(.ok):not(.active):not(.warn):not(.error) { display: none; }
+
+.wl-agent { --ac: #d97757; gap: 3px; padding-bottom: 2px; }
+.agent-tag {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 3px; border-radius: 999px;
+  background: var(--panel); border: 1px solid color-mix(in srgb, var(--ac) 45%, var(--line)); box-shadow: var(--shadow-lift);
+  font: 600 10.5px var(--font-ui); color: var(--text); white-space: nowrap;
+}
+.wl-agent.inferred .agent-tag { border-style: dashed; }
+.wl-agent[aria-pressed="true"] .agent-tag { background: var(--ac); color: #fff; }
+.wl-agent[aria-pressed="true"] .agent-tag .phase { color: rgba(255, 255, 255, 0.85); }
+.wl-agent.finished { opacity: 0.6; }
+.agent-tag .initial { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--ac); color: #fff; font: 700 9.5px var(--font-mono); }
+.agent-tag .phase { color: var(--muted); font: 600 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; font-variant-ligatures: none; }
+.wl-agent .doing {
+  display: none; order: -1; max-width: 220px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent); font: 10.5px var(--font-mono); color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-ligatures: none;
+}
+.world.density-near .wl-agent .doing { display: block; }
+.world.density-far .agent-tag { padding: 0 3px; }
+.world.density-far .agent-tag .name, .world.density-far .agent-tag .phase { display: none; }
+.world.density-mid .agent-tag .name, .world.density-tiny .agent-tag .name { display: none; }
+.bubble { order: -2; display: inline-flex; gap: 3px; align-items: center; height: 18px; padding: 0 7px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.bubble i { width: 4px; height: 4px; border-radius: 50%; background: var(--ac); animation: think 1.2s ease-in-out infinite; }
+.bubble i:nth-child(2) { animation-delay: 0.15s; }
+.bubble i:nth-child(3) { animation-delay: 0.3s; }
+.bubble.ask { font: 700 11px var(--font-mono); color: var(--warn); border-color: var(--warn); }
+@keyframes think { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+
+.world-tools {
+  position: absolute; right: 10px; bottom: 10px; display: flex; gap: 2px; padding: 3px; border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); box-shadow: var(--shadow); backdrop-filter: blur(6px);
+}
+.world-tools .icon-btn { height: 32px; min-width: 32px; padding: 0; border-color: transparent; background: transparent; }
+.world-tools .icon-btn:hover { background: var(--panel-3); }
+.world-more { position: absolute; left: 10px; bottom: 10px; }
+.world-hint {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%); padding: 7px 12px; border-radius: 8px; pointer-events: none;
+  background: color-mix(in srgb, var(--text) 88%, transparent); color: var(--panel); font-size: 12.5px;
+  white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
+}
+.world-legend {
+  position: absolute; right: 10px; bottom: 56px; width: min(380px, calc(100% - 20px)); max-height: calc(100% - 70px); overflow: auto;
+  padding: 12px 14px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-lift);
+  font-size: 12.5px; color: var(--text-2);
+}
+.world-legend header { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--text); }
+.world-legend ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
+.world-debug { position: absolute; left: 10px; top: 10px; margin: 0; padding: 6px 8px; border-radius: 6px; background: rgba(10, 16, 26, 0.75); color: #cfe; font: 11px var(--font-mono); pointer-events: none; }
+
+/* Touch screens: bigger targets for the map controls. */
+@media (hover: none) {
+  .world-tools .icon-btn { height: 40px; min-width: 40px; }
+  .world-legend { bottom: 64px; }
+}
+@media (max-width: 600px) {
+  .world-tools { right: 6px; bottom: 6px; }
+  .world-more { left: 6px; bottom: 6px; }
+}

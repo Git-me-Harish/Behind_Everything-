@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CoverageDialog, ShortcutsDialog } from './components/Dialogs.tsx';
 import { Inspector } from './components/Inspector.tsx';
-import { Agents, Attention, SessionHeader, ZoneBoard } from './components/Overview.tsx';
+import { Agents, Attention, SessionHeader } from './components/Overview.tsx';
 import { ReplayBar } from './components/ReplayBar.tsx';
 import { SessionList } from './components/SessionList.tsx';
 import { FilterBar, Timeline } from './components/Timeline.tsx';
 import { TopBar } from './components/TopBar.tsx';
+import { Workspace } from './components/Workspace.tsx';
 import { asOf, buildRows, type Row } from './lib/activities.ts';
 import { clock } from './lib/format.ts';
 import { store, useApp, useView } from './lib/store.ts';
@@ -22,6 +23,7 @@ export function App() {
   const connection = useApp(s => s.connection);
   const sessionId = useApp(s => s.sessionId);
   const sessionsLoaded = useApp(s => s.sessionsLoaded);
+  const expanded = useApp(s => s.expanded);
   const view = useView();
 
   useEffect(() => { void store.start(); }, []);
@@ -38,7 +40,7 @@ export function App() {
   useKeyboard(rows);
 
   return (
-    <div className={`app${selection ? '' : ' no-inspector'}`}>
+    <div className={`app${selection ? '' : ' no-inspector'}${expanded ? ' map-expanded' : ''}`}>
       <TopBar theme={theme} setTheme={setTheme} onMenu={() => setMenu(!menu)} />
       <SessionList open={menu} onPick={() => setMenu(false)} />
       <main className="main" aria-label="Session overview">
@@ -59,7 +61,7 @@ export function App() {
           <>
             <SessionHeader view={view} />
             <Agents view={view} />
-            <ZoneBoard view={view} />
+            <Workspace view={view} />
             <Attention view={view} />
             <section className="timeline-card" aria-label="Timeline">
               <FilterBar shown={activityCount} total={totalCount} />
@@ -87,7 +89,9 @@ function useKeyboard(rows: Row[]) {
       if (e.key === 'Escape') {
         if (typing) return target.blur();
         if (store.state.showCoverage || store.state.showShortcuts) { store.toggleCoverage(false); store.toggleShortcuts(false); return; }
-        return store.clearSelection();
+        if (store.state.selection) return store.clearSelection();
+        if (store.state.expanded) return store.toggleExpanded(false);
+        return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
       const acts = rows.filter(r => r.type === 'activity');

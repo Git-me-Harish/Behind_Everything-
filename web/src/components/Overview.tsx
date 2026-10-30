@@ -3,14 +3,14 @@ import {
   SquareTerminal, TriangleAlert, Wrench, type LucideIcon, Clock, Cpu, Folder,
 } from 'lucide-react';
 import { useState } from 'react';
-import { PHASE_ZONE, type SessionState, type ZoneId } from '../../../src/core/state.ts';
+import type { SessionState, ZoneId, ZoneStatus } from '../../../src/core/state.ts';
 import { activityForEvent } from '../lib/activities.ts';
 import { ago, clock, compact, dateTime, duration, isLive, project } from '../lib/format.ts';
 import { PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
 import { store, useApp, useNow } from '../lib/store.ts';
 import { Avatar, SourceTag, agentColor, zoneVars } from './ui.tsx';
 
-const ZONE_ICON: Record<ZoneId, LucideIcon> = {
+export const ZONE_ICON: Record<ZoneId, LucideIcon> = {
   mission: Radar, explorer: FolderSearch, planning: ClipboardList, implementation: Code2, lab: FlaskConical,
   repair: Wrench, tooling: SquareTerminal, approval: ShieldCheck, review: PackageCheck,
 };
@@ -106,62 +106,54 @@ export function Agents({ view }: { view: SessionState }) {
   );
 }
 
-function readCompact(): boolean {
-  try { return localStorage.getItem('be.board') === 'compact'; } catch { return false; }
+/** Selects a zone (details + timeline focused on it), or clears it if it was already selected. */
+export function toggleZone(id: ZoneId) {
+  const on = !(store.state.selection?.type === 'zone' && store.state.selection.id === id);
+  store.select(on ? { type: 'zone', id } : null);
+  store.setFilter({ categories: new Set(on ? ZONE[id].categories : []), failedOnly: on && !!ZONE[id].failedOnly });
 }
 
-export function ZoneBoard({ view }: { view: SessionState }) {
+/** Clicking an agent shows what it is doing right now; with nothing running, it filters the timeline to it. */
+export function pickAgent(id: string, callId: string | undefined) {
+  if (callId) return store.select({ type: 'activity', key: `call:${callId}` });
+  store.setFilter({ agent: store.state.filter.agent === id ? undefined : id });
+}
+
+export const zoneDot = (status: ZoneStatus) => (status === 'idle' ? '' : status === 'active' ? 'active pulse' : status === 'warn' ? 'warn pulse' : status);
+
+export function ZoneBoard({ view, compact }: { view: SessionState; compact: boolean }) {
   const selected = useApp(s => (s.selection?.type === 'zone' ? s.selection.id : undefined));
-  const [compact, setCompact] = useState(readCompact);
-  const toggle = () => {
-    setCompact(!compact);
-    try { localStorage.setItem('be.board', compact ? 'board' : 'compact'); } catch { /* private mode */ }
-  };
   return (
-    <div className="board-wrap">
-      <div className="board-head">
-        <span className="section-title">Workspace</span>
-        <span className="muted" style={{ fontSize: 11.5 }}>Click a zone to focus the timeline on it</span>
-        <button className="link" style={{ marginLeft: 'auto', fontSize: 12 }} onClick={toggle} aria-pressed={compact}>
-          {compact ? 'Show board' : 'Collapse to strip'}
-        </button>
-      </div>
-      <section className={`board${compact ? ' compact' : ''}`} aria-label="Workspace zones">
-        {ZONE_LAYOUT.map(id => {
-          const z = view.zones[id];
-          const meta = ZONE[id];
-          const Icon = ZONE_ICON[id];
-          const occupants = Object.values(view.agents).filter(a => !a.finished && PHASE_ZONE[a.phase] === id);
-          const dot = z.status === 'idle' ? '' : z.status === 'active' ? 'active pulse' : z.status === 'warn' ? 'warn pulse' : z.status;
-          return (
-            <button
-              key={id}
-              className={`zone status-${z.status}${z.source_class === 'inferred' ? ' inferred' : ''}`}
-              style={zoneVars(id)}
-              aria-pressed={selected === id}
-              aria-label={`${meta.name}: ${z.label}${occupants.length ? `, ${occupants.map(o => o.label).join(', ')} here` : ''}`}
-              title={meta.blurb}
-              onClick={() => {
-                const on = selected !== id;
-                store.select(on ? { type: 'zone', id } : null);
-                store.setFilter({ categories: new Set(on ? meta.categories : []), failedOnly: on && !!meta.failedOnly });
-              }}
-            >
-              <span className="zone-top">
-                <span className="badge"><Icon size={12} aria-hidden />{meta.name}</span>
-                <span className="occupants">
-                  {occupants.map(a => <Avatar key={a.id} agent={a} color={agentColor(view.agents, a.id)} busy={!!a.activity} />)}
-                </span>
+    <section className={`board${compact ? ' compact' : ''}`} aria-label="Workspace zones">
+      {ZONE_LAYOUT.map(id => {
+        const z = view.zones[id];
+        const meta = ZONE[id];
+        const Icon = ZONE_ICON[id];
+        const occupants = Object.values(view.agents).filter(a => !a.finished && a.zone === id);
+        return (
+          <button
+            key={id}
+            className={`zone status-${z.status}${z.source_class === 'inferred' ? ' inferred' : ''}`}
+            style={zoneVars(id)}
+            aria-pressed={selected === id}
+            aria-label={`${meta.name}: ${z.label}${occupants.length ? `, ${occupants.map(o => o.label).join(', ')} here` : ''}`}
+            title={meta.blurb}
+            onClick={() => toggleZone(id)}
+          >
+            <span className="zone-top">
+              <span className="badge"><Icon size={12} aria-hidden />{meta.name}</span>
+              <span className="occupants">
+                {occupants.map(a => <Avatar key={a.id} agent={a} color={agentColor(view.agents, a.id)} busy={!!a.activity} />)}
               </span>
-              <span className={`pill${z.source_class === 'inferred' ? ' inferred' : ''}`} title={z.label}>
-                <span className={`dot ${dot}`} />
-                <span>{z.label}</span>
-              </span>
-            </button>
-          );
-        })}
-      </section>
-    </div>
+            </span>
+            <span className={`pill${z.source_class === 'inferred' ? ' inferred' : ''}`} title={z.label}>
+              <span className={`dot ${zoneDot(z.status)}`} />
+              <span>{z.label}</span>
+            </span>
+          </button>
+        );
+      })}
+    </section>
   );
 }
 

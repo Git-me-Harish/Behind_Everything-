@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 import type { SourceClass } from '../../../src/core/schema.ts';
 import type { AgentState, ZoneId } from '../../../src/core/state.ts';
 import type { Activity } from '../lib/activities.ts';
-import { AGENT_COLORS, SOURCE_INFO } from '../lib/meta.ts';
+import { SOURCE_INFO } from '../lib/meta.ts';
+
+export { agentColor } from '../lib/meta.ts';
 
 export type RowStatus = 'ok' | 'failed' | 'running' | 'pending' | 'cancelled' | 'none';
 
@@ -40,14 +42,6 @@ export function SourceTag({ source, why }: { source: SourceClass; why?: string }
       {info.label}
     </span>
   );
-}
-
-/** Stable colour per agent: Claude (main) is clay, subagents cycle through the palette by first appearance. */
-export function agentColor(agents: Record<string, AgentState>, id: string): string {
-  if (id === 'main') return AGENT_COLORS[0]!;
-  const subs = Object.keys(agents).filter(a => a !== 'main');
-  const i = subs.indexOf(id);
-  return AGENT_COLORS[1 + ((i < 0 ? subs.length : i) % (AGENT_COLORS.length - 1))]!;
 }
 
 export function Avatar({ agent, color, busy }: { agent: Pick<AgentState, 'id' | 'label'>; color: string; busy?: boolean }) {
