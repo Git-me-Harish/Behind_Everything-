@@ -1,9 +1,9 @@
-import { Ban, Check, CircleDashed, Clock, LoaderCircle, X } from 'lucide-react';
+import { Ban, Check, CircleDashed, Clock, LoaderCircle, SquareTerminal, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { SourceClass } from '../../../src/core/schema.ts';
 import type { AgentState, ZoneId } from '../../../src/core/state.ts';
 import type { Activity } from '../lib/activities.ts';
-import { AGENT_COLORS, SOURCE_INFO } from '../lib/meta.ts';
+import { AGENT_COLORS, assistantMeta, SOURCE_INFO } from '../lib/meta.ts';
 import { useAssistant } from '../lib/store.ts';
 import { CLAWD_COLS, CLAWD_ROWS, clawdRuns, PIXEL } from '../world/clawd.ts';
 
@@ -56,6 +56,16 @@ export function ClawdIcon({ color = AGENT_COLORS[0]!, className = 'clawd' }: { c
         <rect key={`${r.part}${r.row}-${r.col}`} x={r.col * PIXEL.w} y={r.row * PIXEL.h} width={r.len * PIXEL.w} height={PIXEL.h} fill={r.part === 'eye' ? 'var(--clawd-eye)' : color} />
       ))}
     </svg>
+  );
+}
+
+/** Which assistant a session belongs to, at a glance: Claude's mascot, or Codex's terminal mark. */
+export function AssistantMark({ assistant }: { assistant: string }) {
+  const meta = assistantMeta(assistant);
+  return (
+    <span className={`assistant-mark ${assistant}`} title={meta.name} role="img" aria-label={meta.name}>
+      {assistant === 'claude-code' ? <ClawdIcon /> : <SquareTerminal size={13} color={meta.color} aria-hidden />}
+    </span>
   );
 }
 

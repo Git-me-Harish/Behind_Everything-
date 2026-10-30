@@ -78,8 +78,10 @@ export const SOURCE_INFO: Record<SourceClass, { label: string; help: string }> =
   unavailable: { label: 'Unavailable', help: 'The assistant does not expose this, or capture is turned off. Not seeing it does not mean it did not happen.' },
 };
 
+export interface Capability { signal: string; state: 'yes' | 'partial' | 'no'; note: string }
+
 /** What the Claude Code log adapter can see — mirrors docs/CAPABILITIES.md. */
-export const CAPABILITIES: Array<{ signal: string; state: 'yes' | 'partial' | 'no'; note: string }> = [
+const CLAUDE_CAPABILITIES: Capability[] = [
   { signal: 'Prompts, turns, assistant messages', state: 'yes', note: 'From the transcript' },
   { signal: 'Reasoning', state: 'partial', note: 'That it happened and how long — never its content' },
   { signal: 'File reads, searches and edits with diffs', state: 'yes', note: 'Read, Glob, Grep, Edit, Write' },
@@ -93,11 +95,43 @@ export const CAPABILITIES: Array<{ signal: string; state: 'yes' | 'partial' | 'n
   { signal: 'Session closed', state: 'no', note: 'Needs the hook bridge (planned)' },
 ];
 
+/** What the Codex log adapter can see — mirrors docs/CAPABILITIES.md. */
+const CODEX_CAPABILITIES: Capability[] = [
+  { signal: 'Prompts, turns, assistant messages', state: 'yes', note: 'From the rollout log' },
+  { signal: 'Reasoning', state: 'partial', note: 'That it happened — Codex stores the content encrypted' },
+  { signal: 'File reads and searches', state: 'yes', note: 'Recognised from the shell commands Codex runs (Get-Content, cat, rg…)' },
+  { signal: 'File edits with diffs', state: 'yes', note: 'apply_patch and Codex’s own file-change records' },
+  { signal: 'Commands with exit codes, duration and output', state: 'yes', note: 'Including background processes and code-mode cells' },
+  { signal: 'Tests, checks, dependency changes', state: 'yes', note: 'Classified from the command that ran' },
+  { signal: 'Plans', state: 'partial', note: 'update_plan — verified on synthetic data only so far' },
+  { signal: 'Approvals', state: 'partial', note: 'Commands that asked to leave the sandbox: approval inferred when they ran, refusals observed' },
+  { signal: 'Subagents', state: 'no', note: 'Not seen in Codex logs yet' },
+  { signal: 'Token usage, compaction', state: 'yes', note: '' },
+  { signal: 'A permission prompt still waiting for you', state: 'no', note: 'Needs the hook bridge (planned)' },
+];
+
+export interface AssistantMeta {
+  /** Product name, e.g. in "Claude Code 2.1". */
+  name: string;
+  /** What the main agent is called. */
+  agent: string;
+  color: string;
+  logs: string;
+  capabilities: Capability[];
+}
+
+export const ASSISTANTS: Record<string, AssistantMeta> = {
+  'claude-code': { name: 'Claude Code', agent: 'Claude', color: '#d97757', logs: 'Claude Code transcripts', capabilities: CLAUDE_CAPABILITIES },
+  codex: { name: 'Codex', agent: 'Codex', color: '#10a37f', logs: 'Codex rollout logs', capabilities: CODEX_CAPABILITIES },
+};
+
+export const assistantMeta = (assistant?: string): AssistantMeta => ASSISTANTS[assistant ?? ''] ?? ASSISTANTS['claude-code']!;
+
 export const AGENT_COLORS = ['#d97757', '#3b82c4', '#8b5cf6', '#16a34a', '#db2777', '#0891b2', '#ca8a04'];
 
-/** Stable colour per agent: Claude (main) is clay, subagents cycle through the palette by first appearance. */
-export function agentColor(agents: Record<string, AgentState>, id: string): string {
-  if (id === 'main') return AGENT_COLORS[0]!;
+/** Stable colour per agent: the main agent wears its assistant's colour (Claude clay, Codex green); subagents cycle through the palette by first appearance. */
+export function agentColor(agents: Record<string, AgentState>, id: string, assistant?: string): string {
+  if (id === 'main') return assistantMeta(assistant).color;
   const subs = Object.keys(agents).filter(a => a !== 'main');
   const i = subs.indexOf(id);
   return AGENT_COLORS[1 + ((i < 0 ? subs.length : i) % (AGENT_COLORS.length - 1))]!;

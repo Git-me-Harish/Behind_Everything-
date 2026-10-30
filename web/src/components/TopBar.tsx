@@ -1,6 +1,7 @@
 import { CircleHelp, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ScanEye, Sun } from 'lucide-react';
 import { store, useApp } from '../lib/store.ts';
 import type { ThemeChoice } from '../lib/theme.ts';
+import { assistantMeta } from '../lib/meta.ts';
 import { BrandMark } from './ui.tsx';
 
 const CONN = {
@@ -17,7 +18,9 @@ export function TopBar({ theme, setTheme, sessionsOpen, narrow }: { theme: Theme
   const health = useApp(s => s.health);
   const c = CONN[connection];
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor;
-  const source = health?.sources[0];
+  const session = useApp(s => s.sessions.find(x => x.id === s.sessionId));
+  const meta = assistantMeta(session?.assistant);
+  const source = health?.sources.find(x => x.assistant === (session?.assistant ?? 'claude-code'));
   return (
     <header className="topbar">
       <button
@@ -31,7 +34,7 @@ export function TopBar({ theme, setTheme, sessionsOpen, narrow }: { theme: Theme
         {narrow ? <Menu size={16} /> : sessionsOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
       </button>
       <div className="brand"><BrandMark /> <span className="brand-name">Behind Everything</span></div>
-      <span className="tag hide-narrow" title="Capture: reading Claude Code's own transcripts — no configuration, read-only">Claude Code · log</span>
+      <span className="tag hide-narrow" title={`Capture: reading ${meta.logs} — no configuration, read-only`}>{meta.name} · log</span>
       <div className="spacer" />
       <span className="conn" role="status" aria-live="polite" aria-label={c.label} title={source ? `Watching ${source.files} transcript file(s) in ${source.root}` : undefined}>
         <span className={`dot ${c.dot}${connection === 'live' ? ' pulse' : ''}`} style={connection === 'live' ? { boxShadow: '0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent)' } : undefined} />
