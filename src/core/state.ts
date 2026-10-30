@@ -104,6 +104,12 @@ export function initialState(session_id: string): SessionState {
   return s;
 }
 
+/** The phase an agent is in while one of its calls runs — where it returns to after an approval. */
+const ACTIVITY_PHASE: Partial<Record<EventKind, Phase>> = {
+  'file.read': 'exploring', 'file.search': 'exploring', 'file.edit': 'implementing', 'test.run': 'testing', 'build.run': 'testing',
+  'web.fetch': 'researching', 'plan.update': 'planning', 'subagent.start': 'delegating',
+};
+
 const EDIT_LOOP_THRESHOLD = 4;
 const MAX_ATTENTION = 100;
 
@@ -117,7 +123,9 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
   const finished = e.status === 'succeeded' || e.status === 'failed' || e.status === 'cancelled';
   const callId = e.correlation?.call_id;
 
-  if (finished && callId) {
+  // A permission decision belongs to a call that is still running: it neither ends nor becomes the activity.
+  const decision = e.kind === 'permission.decision';
+  if (finished && callId && !decision) {
     delete s.commands.running[callId];
     if (agent.activity?.call_id === callId) agent.activity = undefined;
   }
@@ -214,7 +222,7 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
         const todos = e.payload?.todos;
         if (Array.isArray(todos)) s.plan.items = todos.map((t: any) => ({ text: String(t.text ?? ''), status: String(t.status ?? 'pending') }));
         else if (e.tool === 'TaskCreate') s.plan.items.push({ text: String(e.payload?.subject ?? e.summary), status: 'pending' });
-        else if (e.tool === 'ExitPlanMode') s.plan.proposals++;
+        else if (e.tool === 'ExitPlanMode' || e.payload?.proposal === true) s.plan.proposals++;
       }
       break;
     case 'user.question':
@@ -227,12 +235,27 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
         resolve(s, `ask:${callId}`);
       }
       break;
-    case 'permission.decision':
+    case 'permission.decision': {
+      // A request still waiting (Copilot logs them as they are asked) parks the agent at the Approval Gate.
+      const key = `perm:${String(e.payload?.request_id ?? callId ?? e.id)}`;
+      if (e.status === 'pending') {
+        setPhase(agent, 'awaiting_input', e);
+        s.approvals.pending[key] = { summary: e.summary, ts: e.ts, event: e.id };
+        attend(s, key, 'info', e.summary, e);
+        break;
+      }
+      if (s.approvals.pending[key]) {
+        delete s.approvals.pending[key];
+        resolve(s, key);
+        const a = agent.activity;
+        if (agent.phase === 'awaiting_input' && a) setPhase(agent, s.repair.active && a.kind === 'file.edit' ? 'repairing' : ACTIVITY_PHASE[a.kind] ?? 'running', e);
+      }
       if (e.status === 'failed') {
         s.approvals.blocked++;
         attend(s, `perm:${e.id}`, 'warn', e.summary, e);
-      } else s.approvals.approved++;
+      } else if (e.status === 'succeeded' && e.actor === 'user') s.approvals.approved++;
       break;
+    }
     case 'subagent.start':
       if (started && callId) {
         setPhase(agent, 'delegating', e);
@@ -259,7 +282,7 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
       break;
   }
 
-  if (started && callId && e.kind !== 'user.question') agent.activity = { call_id: callId, kind: e.kind, summary: e.summary, started_at: e.ts };
+  if (started && callId && e.kind !== 'user.question' && !decision) agent.activity = { call_id: callId, kind: e.kind, summary: e.summary, started_at: e.ts };
   refreshZones(s);
   return s;
 }
@@ -273,8 +296,10 @@ export function reduce(session_id: string, events: Iterable<CanonicalEvent>): Se
 function ensureAgent(s: SessionState, e: CanonicalEvent): AgentState {
   const existing = s.agents[e.agent_id];
   if (existing) return existing;
-  // A subagent's transcript doesn't name the call that spawned it: pair it with the oldest unmatched call.
-  const pending = e.agent_id !== 'main' ? s.pending_subagents.shift() : undefined;
+  // Pair a subagent with the call that spawned it: by id when the agent is named after its call (Copilot), else
+  // the oldest unmatched call (a Claude Code subagent transcript does not name its call).
+  const byCall = s.pending_subagents.findIndex(p => p.call_id === e.agent_id);
+  const pending = e.agent_id === 'main' ? undefined : byCall >= 0 ? s.pending_subagents.splice(byCall, 1)[0] : s.pending_subagents.shift();
   const agent: AgentState = {
     id: e.agent_id,
     parent: e.agent_id === 'main' ? undefined : pending?.parent ?? 'main',

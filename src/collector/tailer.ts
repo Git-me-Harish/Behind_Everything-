@@ -4,6 +4,8 @@ import type { CanonicalEvent, SessionInfo } from '../core/schema.js';
 
 export interface LineParser {
   parse(line: string, lineNo: number): CanonicalEvent[];
+  /** Called after everything written so far has been read: lets a parser report what is still waiting. */
+  idle?(): CanonicalEvent[];
   readonly session: SessionInfo | undefined;
 }
 
@@ -107,6 +109,7 @@ export class JsonlTailer {
         // Keep the incomplete tail (copied: `buf` is reused on the next read).
         t.rest = Buffer.from(data.subarray(start));
       }
+      if (t.parser.idle) events.push(...t.parser.idle());
     } finally {
       fs.closeSync(fd);
     }
