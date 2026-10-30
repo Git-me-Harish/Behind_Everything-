@@ -1,7 +1,7 @@
 import { Check, Minus, X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { SessionState } from '../../../src/core/state.ts';
-import { CAPABILITIES, SOURCE_INFO } from '../lib/meta.ts';
+import { assistantMeta, SOURCE_INFO } from '../lib/meta.ts';
 import { store, useApp } from '../lib/store.ts';
 import { SourceTag } from './ui.tsx';
 
@@ -26,10 +26,12 @@ export function CoverageDialog({ view }: { view: SessionState }) {
   const show = useApp(s => s.showCoverage);
   const health = useApp(s => s.health);
   const events = useApp(s => s.events);
+  const assistant = useApp(s => s.sessions.find(x => x.id === s.sessionId)?.assistant ?? 'claude-code');
   if (!show) return null;
   const redacted = events.reduce((n, e) => n + (e.redactions?.length ?? 0), 0);
   const adapter = events.find(e => e.adapter)?.adapter;
-  const source = health?.sources[0];
+  const meta = assistantMeta(assistant);
+  const source = health?.sources.find(x => x.assistant === assistant);
   return (
     <Dialog title="Coverage — what we can and cannot see" onClose={() => store.toggleCoverage(false)}>
       <p style={{ margin: 0 }}>
@@ -42,7 +44,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
       </div>
       <table className="cap-table">
         <tbody>
-          {CAPABILITIES.map(c => (
+          {meta.capabilities.map(c => (
             <tr key={c.signal}>
               <td style={{ width: 22 }}>{c.state === 'yes' ? <Check size={15} color="var(--ok)" aria-label="Captured" /> : c.state === 'partial' ? <Minus size={15} color="var(--warn)" aria-label="Partly captured" /> : <X size={15} color="var(--error)" aria-label="Not captured" />}</td>
               <td>{c.signal}</td>
@@ -52,7 +54,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
         </tbody>
       </table>
       <dl className="kv">
-        <dt>Capture</dt><dd>Claude Code transcripts · read-only · no configuration</dd>
+        <dt>Capture</dt><dd>{meta.logs} · read-only · no configuration</dd>
         {source && <><dt>Watching</dt><dd className="mono" style={{ fontSize: 11.5 }}>{source.root} ({source.files} files)</dd></>}
         {adapter && <><dt>Adapter</dt><dd className="mono">{adapter.name} v{adapter.version}</dd></>}
         <dt>This session</dt><dd>{view.event_count.toLocaleString()} events · {view.unknown_count} unrecognised · {redacted} values redacted</dd>

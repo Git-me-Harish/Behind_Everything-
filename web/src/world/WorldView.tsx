@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { SessionState, ZoneId } from '../../../src/core/state.ts';
 import { pickAgent, toggleZone, ZONE_ICON, zoneDot } from '../components/Overview.tsx';
 import { ClawdIcon, zoneVars } from '../components/ui.tsx';
-import { PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
+import { assistantMeta, PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
 import { store, useApp, useAssistant } from '../lib/store.ts';
 import { World, type LabelPos } from './engine.ts';
 import { worldModel, type AgentModel } from './model.ts';
@@ -192,7 +192,7 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
         <button className="icon-btn" onClick={() => world.current?.zoomBy(1.4)} aria-label="Zoom in" title="Zoom in (+)"><Plus size={15} /></button>
         <button className="icon-btn" onClick={() => world.current?.zoomBy(1 / 1.4)} aria-label="Zoom out" title="Zoom out (−)"><Minus size={15} /></button>
         <button className="icon-btn" onClick={() => { setFollow(false); world.current?.resetView(); }} aria-label="Fit the map" title="Fit (0)"><Scan size={15} /></button>
-        <button className="icon-btn" aria-pressed={follow} onClick={() => setFollow(!follow)} aria-label="Follow Claude" title="Follow Claude"><LocateFixed size={15} /></button>
+        <button className="icon-btn" aria-pressed={follow} onClick={() => setFollow(!follow)} aria-label={`Follow ${assistantMeta(assistant).agent}`} title={`Follow ${assistantMeta(assistant).agent}`}><LocateFixed size={15} /></button>
         <button className="icon-btn" aria-pressed={legend} onClick={() => setLegend(!legend)} aria-label="Map legend" title="What am I looking at?"><CircleHelp size={15} /></button>
         <button className="icon-btn" onClick={() => store.toggleExpanded()} aria-label={expanded ? 'Exit full screen map' : 'Full screen map'} title={expanded ? 'Exit full screen (Esc)' : 'Full screen'}>
           {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -200,7 +200,7 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
       </div>
 
       {model.hiddenAgents > 0 && <span className="chip world-more">+{model.hiddenAgents} more agents</span>}
-      {legend && <Legend onClose={() => setLegend(false)} />}
+      {legend && <Legend assistant={assistant} onClose={() => setLegend(false)} />}
       {hint && <div className="world-hint" role="status">{HINTS[hint]}</div>}
       {lost && <div className="world-hint" role="status">Graphics paused by the browser — restoring…</div>}
       {new URLSearchParams(location.search).has('debug') && <DebugHud />}
@@ -234,13 +234,16 @@ function AgentTag({ a, pressed, ref }: { a: AgentModel; pressed: boolean; ref: (
   );
 }
 
-function Legend({ onClose }: { onClose: () => void }) {
+function Legend({ assistant, onClose }: { assistant: string; onClose: () => void }) {
+  const meta = assistantMeta(assistant);
   return (
     <div className="world-legend" role="dialog" aria-label="Map legend">
       <header><b>Reading the map</b><button className="link" onClick={onClose}>Close</button></header>
       <ul>
         <li><b>Rooms</b> are the zones of the work. A coloured light on the back wall shows each room’s status; a ripple crosses the floor when something happens there.</li>
-        <li><b>Claude</b> is its pixel mascot; its subagents are smaller ones, each in its own colour. They walk to the room of what they are doing now — and type while a tool runs. Dots above a head: thinking. <b>?</b> and a wave: waiting for you.</li>
+        {assistant === 'claude-code'
+          ? <li><b>Claude</b> is its pixel mascot; its subagents are smaller ones, each in its own colour. They walk to the room of what they are doing now — and type while a tool runs. Dots above a head: thinking. <b>?</b> and a wave: waiting for you.</li>
+          : <li><b>{meta.agent}</b> is the figure in its colour. It walks to the room of what it is doing now. Dots above its head: thinking. <b>?</b>: waiting for you.</li>}
         <li><b>Props are real counts</b>: books = files read, notes = plan items, lit monitors = files changed, tubes = test and check verdicts, crates = files ready for review, lamps in the Repair Bay = failures and reruns.</li>
         <li><b>Dashed</b> outlines and <b>~</b> mean inferred from a pattern, not read directly. The Approval Gate’s barrier is down while something waits for you.</li>
         <li>Drag to move · Ctrl+scroll or pinch to zoom · click a room or a person for details.</li>

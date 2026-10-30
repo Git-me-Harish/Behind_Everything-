@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyClaudeTool, classifyCommand } from '../src/core/classify.js';
+import { classifyClaudeTool, classifyCommand, classifyShell, readTargets } from '../src/core/classify.js';
 
 describe('classifyCommand', () => {
   it.each([
@@ -42,4 +42,28 @@ describe('classifyClaudeTool', () => {
     ['PowerShell', { command: 'dotnet test' }, 'test.run'],
     ['SomethingNew', {}, 'tool.call'],
   ])('%s → %s', (name, input, kind) => expect(classifyClaudeTool(name, input)).toBe(kind));
+});
+
+describe('classifyShell (agents that read through the shell)', () => {
+  it.each([
+    ["Get-Content -LiteralPath 'src/a.ts'", 'file.read'],
+    ['cat README.md package.json', 'file.read'],
+    ['sed -n 1,120p src/x.py', 'file.read'],
+    ['Get-Content src\a.ts | Select-Object -First 80', 'file.read'],
+    ['rg --files public src | Select-Object -First 300', 'file.search'],
+    ['rg -n "parse" src; Get-Content src/date.ts', 'file.search'],
+    ['Get-ChildItem -LiteralPath . -Force', 'file.search'],
+    ['git ls-files', 'file.search'],
+    ['git status --short', 'command.run'],
+    ['cat a.txt | python fix.py', 'command.run'],
+    ['pnpm test', 'test.run'],
+    ['python -m pytest -q', 'test.run'],
+  ])('%s → %s', (cmd, kind) => expect(classifyShell(cmd)).toBe(kind));
+
+  it('names the files a read command reads', () => {
+    expect(readTargets("Get-Content -LiteralPath 'src/a b.ts'")).toEqual(['src/a b.ts']);
+    expect(readTargets('cat README.md package.json | head -5')).toEqual(['README.md', 'package.json']);
+    expect(readTargets('sed -n 1,120p src/x.py')).toEqual(['src/x.py']);
+    expect(readTargets('head -n 40 a.ts')).toEqual(['a.ts']);
+  });
 });

@@ -47,3 +47,43 @@ export function classifyClaudeTool(name: string, input: Record<string, unknown>)
     default: return 'tool.call';
   }
 }
+
+// Agents without dedicated read/search tools (Codex) read files through the shell.
+const READ = /^(cat|type|Get-Content|gc|head|tail|less|more|nl|bat|sed -n)\b/i;
+const SEARCH = /^(rg|grep|egrep|fgrep|ag|Select-String|sls|find|fd|ls|dir|Get-ChildItem|gci|tree|git (grep|ls-files))\b/i;
+/** Output shaping that does not change what a command is: `rg … | head -50`, `Get-Content x | Select-Object -First 80`. */
+const FILTER = /^(head|tail|sort|uniq|wc|cut|tr|less|more|Select-Object|select|Format-Table|ft|Format-List|fl|Out-String|Sort-Object|Measure-Object|Where-Object|ForEach-Object|Out-Host)\b/i;
+
+/**
+ * Like `classifyCommand`, but also recognises commands that only read or search files. Every invoked program
+ * must be a reader/searcher (or an output filter after one); anything else keeps it a plain command.
+ */
+export function classifyShell(command: string): EventKind {
+  const kind = classifyCommand(command);
+  if (kind !== 'command.run') return kind;
+  const segs = segments(command);
+  if (!segs.length) return kind;
+  let reads = 0, searches = 0;
+  for (const [i, s] of segs.entries()) {
+    if (i > 0 && FILTER.test(s)) continue;
+    if (READ.test(s)) reads++;
+    else if (SEARCH.test(s)) searches++;
+    else return kind;
+  }
+  return searches ? 'file.search' : reads ? 'file.read' : kind;
+}
+
+/** Files named by read commands (`cat a b`, `Get-Content -LiteralPath 'x'`, `sed -n 1,80p f`), best effort. */
+export function readTargets(command: string): string[] {
+  const out: string[] = [];
+  for (const s of segments(command)) {
+    if (!READ.test(s)) continue;
+    const words = s.match(/'[^']*'|"[^"]*"|\S+/g) ?? [];
+    for (const w of words.slice(/^sed$/i.test(words[0] ?? '') ? 2 : 1)) {
+      const v = w.replace(/^['"]|['"]$/g, '');
+      if (!v || v.startsWith('-') || /^\d+$/.test(v) || /^\d*,?\d*p$/.test(v) || v === '>' || v.startsWith('$')) continue;
+      out.push(v);
+    }
+  }
+  return [...new Set(out)];
+}

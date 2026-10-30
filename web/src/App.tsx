@@ -56,8 +56,8 @@ export function App() {
         )}
         {!sessionId && sessionsLoaded && (
           <div className="empty" style={{ marginTop: 80 }}>
-            <h2>Waiting for your first Claude Code session</h2>
-            <p>Open Claude Code in any project and start working — its activity appears here live. Nothing to configure.</p>
+            <h2>Waiting for your first session</h2>
+            <p>Open Claude Code or Codex in any project and start working — its activity appears here live. Nothing to configure.</p>
           </div>
         )}
         {sessionId && (

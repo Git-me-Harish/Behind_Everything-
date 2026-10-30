@@ -86,6 +86,9 @@ export interface SessionState {
   pending_subagents: Array<{ call_id: string; label: string; parent: string }>;
 }
 
+/** What the main agent is called on screen. */
+export const ASSISTANT_NAME: Record<CanonicalEvent['assistant'], string> = { 'claude-code': 'Claude', codex: 'Codex', 'copilot-cli': 'Copilot', 'copilot-vscode': 'Copilot' };
+
 export function initialState(session_id: string): SessionState {
   const zones = Object.fromEntries(ZONES.map(id => [id, { id, status: 'idle', label: '', count: 0, source_class: 'observed' }])) as unknown as Record<ZoneId, ZoneState>;
   const s: SessionState = {
@@ -275,7 +278,7 @@ function ensureAgent(s: SessionState, e: CanonicalEvent): AgentState {
   const agent: AgentState = {
     id: e.agent_id,
     parent: e.agent_id === 'main' ? undefined : pending?.parent ?? 'main',
-    label: e.agent_id === 'main' ? 'Claude' : pending?.label ?? 'Subagent',
+    label: e.agent_id === 'main' ? ASSISTANT_NAME[e.assistant] : pending?.label ?? 'Subagent',
     phase: 'idle', phase_source: 'observed', phase_since: e.ts, phase_evidence: [], zone: 'mission', finished: false,
   };
   s.agents[e.agent_id] = agent;

@@ -2,6 +2,7 @@ import path from 'node:path';
 import { classifyClaudeTool } from '../../core/classify.js';
 import { clip, redactValue, truncate, type Redaction } from '../../core/redact.js';
 import type { CanonicalEvent, EventKind, Resource, SessionInfo } from '../../core/schema.js';
+import { clipLine, lineCount, MAX_PATCH_LINES, oneLine, patchFromContent, relativeTo } from '../shared.js';
 
 export const ADAPTER = { name: 'claude-code-log', version: '3', capture: 'log' } as const;
 
@@ -9,7 +10,7 @@ export const ADAPTER = { name: 'claude-code-log', version: '3', capture: 'log' }
 const IGNORED = new Set([
   'queue-operation', 'attachment', 'file-history-snapshot', 'file-history-delta', 'atis-latch',
   'api-request', 'api-request-shape', 'api-request-blob', 'last-prompt', 'tools-used', 'progress',
-  'custom-title', 'tag', 'agent-name', 'pr-link', 'mode', 'bridge-session',
+  'custom-title', 'tag', 'agent-name', 'pr-link', 'mode', 'bridge-session', 'permission-mode', 'cost-state',
 ]);
 
 const DENIED = /^(The user doesn't want to proceed|Permission to use .* (has been )?denied|.*auto mode cannot determine)/s;
@@ -222,15 +223,7 @@ export function createClaudeParser(file: string) {
     }
   }
 
-  function rel(p: string): string {
-    const cwd = session?.cwd;
-    const norm = p.replace(/\\/g, '/');
-    if (cwd) {
-      const c = cwd.replace(/\\/g, '/').replace(/\/$/, '');
-      if (norm.toLowerCase().startsWith(c.toLowerCase() + '/')) return norm.slice(c.length + 1);
-    }
-    return norm;
-  }
+  const rel = (p: string) => relativeTo(session?.cwd, p);
 
   function resourcesOf(tool: string, input: Json): Resource[] {
     const file = input.file_path ?? input.notebook_path;
@@ -299,11 +292,6 @@ function patchStats(patch: unknown): { added: number; removed: number } {
   return { added, removed };
 }
 
-const lineCount = (s: string) => (s ? s.split('\n').length : 0);
-
-const MAX_PATCH_LINES = 400;
-const clipLine = (l: string) => (l.length > 400 ? `${l.slice(0, 400)}…` : l);
-
 /** Unified-diff lines (with `@@` hunk headers) for the inspector's diff view, capped in size. */
 function patchLines(patch: unknown): string[] {
   const out: string[] = [];
@@ -314,16 +302,4 @@ function patchLines(patch: unknown): string[] {
     for (const l of h?.lines ?? []) if (typeof l === 'string' && out.length < MAX_PATCH_LINES) out.push(clipLine(l));
   }
   return out;
-}
-
-function patchFromContent(content: string): string[] {
-  const lines = content.split('\n');
-  const out = [`@@ -0,0 +1,${lines.length} @@`, ...lines.slice(0, MAX_PATCH_LINES - 1).map(l => `+${clipLine(l)}`)];
-  if (lines.length >= MAX_PATCH_LINES) out.push(`… ${lines.length - MAX_PATCH_LINES + 1} more lines`);
-  return out;
-}
-
-function oneLine(s: string, max = 200): string {
-  const first = s.replace(/\s+/g, ' ').trim();
-  return first.length > max ? `${first.slice(0, max - 1)}…` : first;
 }

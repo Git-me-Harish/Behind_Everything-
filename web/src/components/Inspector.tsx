@@ -354,7 +354,7 @@ function ZoneDetail({ id, view }: { id: ZoneId; view: SessionState }) {
             <dt>Approved by you</dt><dd>{view.approvals.approved}</dd>
             <dt>Blocked</dt><dd>{view.approvals.blocked}</dd>
           </dl>
-          <div className="why">Permission prompts that are still open are not written to Claude Code’s transcript until you answer them. Live prompts need the hook bridge (planned).</div>
+          <div className="why">Permission prompts that are still open are not written to the assistant’s log until you answer them. Live prompts need the hook bridge (planned).</div>
           <RunList items={activities.filter(a => a.category === 'people').slice(-30).reverse()} />
         </>
       )}

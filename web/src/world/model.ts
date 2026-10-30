@@ -66,7 +66,7 @@ export function worldModel(view: SessionState, assistant = 'claude-code'): World
     perRoom.set(a.zone, slot + 1);
     return {
       id: a.id, label: a.label, initial: a.id === 'main' ? 'C' : (a.label.trim()[0] ?? 'S').toUpperCase(),
-      color: agentColor(view.agents, a.id), main: a.id === 'main',
+      color: agentColor(view.agents, a.id, assistant), main: a.id === 'main',
       avatar: assistant === 'claude-code' ? 'clawd' : 'person', zone: a.zone, slot, phase: a.phase,
       inferred: a.phase_source === 'inferred', busy: !!a.activity && !a.finished,
       thinking: a.phase === 'thinking' && !a.finished, waiting: a.phase === 'awaiting_input', finished: a.finished,

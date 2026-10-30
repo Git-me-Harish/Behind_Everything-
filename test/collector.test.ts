@@ -83,7 +83,7 @@ describe('collector end-to-end', () => {
 
     const port = 47900 + Math.floor(Math.random() * 90);
     const dbPath = path.join(dir, 'db.sqlite');
-    let c = await startCollector({ port, claudeRoot: root, dbPath });
+    let c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath });
     try {
       const sessions = (await get(port, '/api/sessions')).body;
       expect(sessions).toHaveLength(1);
@@ -117,7 +117,7 @@ describe('collector end-to-end', () => {
 
       // Restart: same file re-read from the top, nothing duplicated.
       await c.close();
-      c = await startCollector({ port, claudeRoot: root, dbPath });
+      c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath });
       const again = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
       expect(again.length).toBe(all.length);
       expect((await get(port, '/api/sessions')).body[0].event_count).toBe(all.length);
@@ -134,7 +134,7 @@ describe('collector detail endpoint', () => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, demoSession().main.jsonl());
     const port = 48000 + Math.floor(Math.random() * 90);
-    const c = await startCollector({ port, claudeRoot: root, dbPath: path.join(dir, 'db.sqlite') });
+    const c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath: path.join(dir, 'db.sqlite') });
     try {
       const list = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
       const edit = list.find((e: any) => e.correlation?.call_id === 't-edit1' && e.status === 'succeeded');
