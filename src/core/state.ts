@@ -126,6 +126,11 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
   // A permission decision belongs to a call that is still running: it neither ends nor becomes the activity.
   const decision = e.kind === 'permission.decision';
   if (finished && callId && !decision) {
+    // A call that ran (or was refused) is no longer waiting for approval — the hook bridge reports only the wait.
+    if (s.approvals.pending[`perm:${callId}`]) {
+      delete s.approvals.pending[`perm:${callId}`];
+      resolve(s, `perm:${callId}`);
+    }
     delete s.commands.running[callId];
     if (agent.activity?.call_id === callId) agent.activity = undefined;
   }
@@ -143,6 +148,11 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
       break;
     case 'turn.end':
       s.turn.open = false;
+      // Nothing outlives its turn waiting for you: a prompt left open was dismissed with it.
+      for (const key of Object.keys(s.approvals.pending)) {
+        delete s.approvals.pending[key];
+        resolve(s, key.startsWith('perm:') ? key : `ask:${key}`);
+      }
       setPhase(agent, 'delivering', e);
       break;
     case 'assistant.reasoning': case 'assistant.message':

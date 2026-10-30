@@ -14,15 +14,16 @@ export class TranscriptBuilder {
   private last: string | null = null;
   private prompt = '';
 
-  constructor(private agentId?: string) {}
+  constructor(private agentId?: string, private session = SESSION) {}
 
   private base(type: string): Json {
     this.t += 1000;
-    const uuid = `${this.agentId ?? 'm'}-${String(++this.n).padStart(4, '0')}`;
+    // Real record uuids are unique across sessions; a second fixture session must not collide with the demo one.
+    const uuid = `${this.session === SESSION ? '' : `${this.session}-`}${this.agentId ?? 'm'}-${String(++this.n).padStart(4, '0')}`;
     const rec: Json = {
       parentUuid: this.last, isSidechain: Boolean(this.agentId), type, uuid,
       timestamp: new Date(this.t).toISOString(), userType: 'external', entrypoint: 'cli',
-      cwd: CWD, sessionId: SESSION, version: '2.1.251', gitBranch: 'main',
+      cwd: CWD, sessionId: this.session, version: '2.1.251', gitBranch: 'main',
       ...(this.agentId ? { agentId: this.agentId } : {}),
     };
     this.last = uuid;

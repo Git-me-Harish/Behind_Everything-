@@ -4,11 +4,16 @@ import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { redactValue } from '../core/redact.js';
 import { liteEvent } from './lite.js';
-import type { Store, StoredEvent } from './store.js';
+import type { SessionRow, Store, StoredEvent } from './store.js';
 
 export interface ServerOptions {
   port: number;
-  store: Store;
+  /** Event storage, for session timelines and single events. */
+  events: Pick<Store, 'session' | 'eventsJson' | 'event'>;
+  /** The session list, with what each is waiting on you for. */
+  sessions: () => SessionRow[];
+  /** A hook call forwarded by an assistant; false if the assistant has no hook bridge. */
+  hook: (assistant: string, body: Record<string, unknown>) => boolean;
   /** Built web client to serve at `/`, if present. */
   webRoot?: string;
   /** Extra origins allowed to connect (the Vite dev server in development). */
@@ -34,22 +39,24 @@ export function createServer(opts: ServerOptions) {
     if (!trusted(req)) return send(res, 403, { error: 'forbidden' });
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
+      const hook = /^\/api\/hooks\/([\w-]+)$/.exec(url.pathname);
+      if (hook && req.method === 'POST') return receiveHook(req, res, hook[1]!, opts.hook);
       if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
       if (url.pathname === '/api/health') return send(res, 200, opts.health());
-      if (url.pathname === '/api/sessions') return send(res, 200, opts.store.sessions());
+      if (url.pathname === '/api/sessions') return send(res, 200, opts.sessions());
       const m = /^\/api\/sessions\/([^/]+)\/events$/.exec(url.pathname);
       if (m) {
         const id = decodeURIComponent(m[1]!);
-        if (!opts.store.session(id)) return send(res, 404, { error: 'unknown session' });
-        return sendRaw(res, opts.store.eventsJson(id, Number(url.searchParams.get('after') ?? 0)));
+        if (!opts.events.session(id)) return send(res, 404, { error: 'unknown session' });
+        return sendRaw(res, opts.events.eventsJson(id, Number(url.searchParams.get('after') ?? 0)));
       }
       const one = /^\/api\/events\/([^/]+)$/.exec(url.pathname);
       if (one) {
-        const e = opts.store.event(decodeURIComponent(one[1]!));
+        const e = opts.events.event(decodeURIComponent(one[1]!));
         return e ? send(res, 200, e) : send(res, 404, { error: 'unknown event' });
       }
       const ev = /^\/api\/events\/([^/]+)\/evidence$/.exec(url.pathname);
-      if (ev) return evidence(res, opts.store.event(decodeURIComponent(ev[1]!)));
+      if (ev) return evidence(res, opts.events.event(decodeURIComponent(ev[1]!)));
       if (opts.webRoot) return serveStatic(res, opts.webRoot, url.pathname);
       return send(res, 200, { name: 'behind-everything', api: ['/api/health', '/api/sessions', '/api/sessions/:id/events', '/api/events/:id', '/api/events/:id/evidence', '/ws'] });
     } catch (err) {
@@ -75,7 +82,7 @@ export function createServer(opts: ServerOptions) {
       for (const c of wss.clients as Set<WebSocket>) if (c.readyState === c.OPEN) c.send(msg);
     },
     broadcastSessions() {
-      const msg = JSON.stringify({ type: 'sessions', sessions: opts.store.sessions() });
+      const msg = JSON.stringify({ type: 'sessions', sessions: opts.sessions() });
       for (const c of wss.clients as Set<WebSocket>) if (c.readyState === c.OPEN) c.send(msg);
     },
     close: () => new Promise<void>(resolve => {
@@ -85,6 +92,28 @@ export function createServer(opts: ServerOptions) {
       server.closeAllConnections();
     }),
   };
+}
+
+/** Hook calls are small JSON objects; anything else is refused without being parsed. */
+const MAX_HOOK_BODY = 256 * 1024;
+
+function receiveHook(req: http.IncomingMessage, res: http.ServerResponse, assistant: string, hook: ServerOptions['hook']) {
+  if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'expected application/json' });
+  const chunks: Buffer[] = [];
+  let size = 0;
+  req.on('data', (c: Buffer) => {
+    size += c.length;
+    if (size > MAX_HOOK_BODY) { send(res, 413, { error: 'too large' }); req.destroy(); return; }
+    chunks.push(c);
+  });
+  req.on('end', () => {
+    if (size > MAX_HOOK_BODY) return;
+    let body: unknown;
+    try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(res, 400, { error: 'invalid JSON' }); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'expected a JSON object' });
+    if (!hook(assistant, body as Record<string, unknown>)) return send(res, 404, { error: 'no hook bridge for this assistant' });
+    res.writeHead(204).end();
+  });
 }
 
 /** The raw provider record behind an event, re-read from its source file and redacted on the way out. */
