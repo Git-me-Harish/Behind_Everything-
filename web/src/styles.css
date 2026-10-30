@@ -222,6 +222,7 @@ kbd { font: 600 11px var(--font-mono); padding: 1px 6px; border-radius: 4px; bor
 .session .meta { grid-column: 2 / 4; font-size: 11.5px; color: var(--muted); display: flex; gap: 8px; min-width: 0; white-space: nowrap; }
 .session .meta > span { flex: none; }
 .session .meta > span.truncate { flex: 0 1 auto; }
+.waiting-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 999px; font-weight: 600; color: color-mix(in srgb, var(--warn) 70%, var(--text)); background: color-mix(in srgb, var(--warn) 18%, transparent); }
 .session .when { font-size: 11px; color: var(--muted); }
 .assistant-mark { display: inline-grid; place-items: center; flex: none; width: 18px; height: 14px; }
 .assistant-mark .clawd { width: 17px; height: auto; display: block; }
@@ -426,11 +427,11 @@ pre.code, .diff {
   .kv { grid-template-columns: 90px minmax(0, 1fr); }
 }
 @media (max-width: 420px) {
+  /* Five touch-size buttons and the logo: the name gives way first. */
+  .topbar { gap: 8px; padding: 0 10px; }
+  .brand-name { display: none; }
   .replay .pos { display: none; }
   .replay input[type='range'] { min-width: 60px; }
-}
-@media (max-width: 380px) {
-  .brand-name { display: none; }
 }
 /* Touch screens: comfortable targets. */
 @media (hover: none) and (pointer: coarse) {

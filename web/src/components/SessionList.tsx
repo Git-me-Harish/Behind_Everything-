@@ -1,4 +1,4 @@
-import { GitBranch, Search } from 'lucide-react';
+import { GitBranch, Hand, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ago, compact, isLive, project } from '../lib/format.ts';
 import { assistantMeta } from '../lib/meta.ts';
@@ -39,6 +39,7 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
         )}
         {shown.map(s => {
           const live = isLive(s.last_ts, now);
+          const waiting = s.waiting ?? [];
           return (
             <button
               key={s.id}
@@ -46,14 +47,16 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
               aria-current={s.id === current}
               onClick={() => { void store.selectSession(s.id); onPick(); }}
             >
-              <span className={`dot ${live ? 'ok pulse' : ''}`} title={live ? 'Active in the last 90 seconds' : 'Idle'} />
+              <span className={`dot ${waiting.length ? 'warn pulse' : live ? 'ok pulse' : ''}`} title={waiting.length ? 'Waiting for you' : live ? 'Active in the last 90 seconds' : 'Idle'} />
               <span className="title truncate">{s.title ?? project(s.cwd)}</span>
               <span className="when">{ago(s.last_ts, now)}</span>
               <span className="meta">
                 <AssistantMark assistant={s.assistant} />
                 <span className="truncate">{project(s.cwd)}</span>
                 {s.git_branch && <span className="truncate" style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}><GitBranch size={11} />{s.git_branch}</span>}
-                <span style={{ marginLeft: 'auto' }}>{compact(s.event_count)} events</span>
+                {waiting.length
+                  ? <span className="waiting-pill" title={waiting.map(w => w.summary).join('\n')}><Hand size={11} aria-hidden />Waiting for you{waiting.length > 1 ? ` · ${waiting.length}` : ''}</span>
+                  : <span style={{ marginLeft: 'auto' }}>{compact(s.event_count)} events</span>}
               </span>
             </button>
           );

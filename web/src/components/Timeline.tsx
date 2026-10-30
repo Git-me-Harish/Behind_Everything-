@@ -190,7 +190,7 @@ function ActivityRow({ a, top, selected, view, now, limitSeq }: { a: Activity; t
         {a.summary}
       </span>
       <span className="end">
-        {decision && (decision.status === 'pending'
+        {decision && (decision.status === 'pending' && a.result ? null : decision.status === 'pending'
           ? <ShieldQuestion size={14} color="var(--warn)" aria-label="Waiting for your approval" />
           : decision.status === 'failed'
           ? <ShieldX size={14} color="var(--error)" aria-label="Blocked" />

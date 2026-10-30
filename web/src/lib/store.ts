@@ -107,14 +107,11 @@ class Store {
     const ws = new WebSocket(`${proto}://${location.host}/ws`);
     this.ws = ws;
     ws.onopen = () => {
-      const recovering = this.retry > 0;
       this.retry = 0;
       this.set({ connection: 'live' });
-      // Anything that happened while disconnected.
-      if (recovering) {
-        void this.refreshSessions();
-        void this.backfill();
-      }
+      // Anything that happened while not connected — including between the first load and this first connection.
+      void this.refreshSessions();
+      void this.backfill();
     };
     ws.onmessage = m => {
       const msg = JSON.parse(String(m.data));
@@ -261,7 +258,11 @@ class Store {
     this.set({ filter: { ...this.state.filter, ...patch } });
   }
 
-  toggleCoverage(show = !this.state.showCoverage) { this.set({ showCoverage: show }); }
+  toggleCoverage(show = !this.state.showCoverage) {
+    // Hook counters change as prompts open: show them fresh.
+    if (show) void this.refreshHealth();
+    this.set({ showCoverage: show });
+  }
   toggleShortcuts(show = !this.state.showShortcuts) { this.set({ showShortcuts: show }); }
   toggleExpanded(on = !this.state.expanded) { this.set({ expanded: on }); }
 

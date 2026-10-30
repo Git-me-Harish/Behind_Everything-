@@ -5,14 +5,17 @@ import { defineConfig } from '@playwright/test';
 import { demoSession, SESSION } from './test/fixtures/claude.ts';
 import { codexSession, CODEX_SESSION } from './test/fixtures/codex.ts';
 import { COPILOT_SESSION, copilotLive } from './test/fixtures/copilot.ts';
+import { install } from './src/hooks/install.ts';
 
-const PORT = 47950;
+export const PORT = 47950;
 export const E2E_ROOT = path.join(os.tmpdir(), 'behind-everything-e2e');
 export const TRANSCRIPT = path.join(E2E_ROOT, 'claude', 'projects', 'C--work-demo', `${SESSION}.jsonl`);
 /** A Codex session next to the Claude one, older so the app still opens on Claude's. */
 export const ROLLOUT = path.join(E2E_ROOT, 'codex', 'sessions', '2026', '10', '29', `rollout-2026-10-29T08-00-00-${CODEX_SESSION}.jsonl`);
 /** A Copilot session whose last line is an approval request still waiting for an answer. */
 export const COPILOT_LOG = path.join(E2E_ROOT, 'copilot', 'session-state', COPILOT_SESSION, 'events.jsonl');
+/** The hook bridge, installed into the fake Claude home the way `hooks install` does it. */
+export const HOOK_FORWARDER = path.join(E2E_ROOT, 'behind-everything-hook.mjs');
 /** Lines withheld at startup; the live test appends them while the page is open. */
 export const LIVE_TAIL = 8;
 
@@ -27,6 +30,7 @@ if (!process.env.BE_E2E_SEEDED) {
   fs.writeFileSync(ROLLOUT, codexSession().jsonl());
   fs.mkdirSync(path.dirname(COPILOT_LOG), { recursive: true });
   fs.writeFileSync(COPILOT_LOG, copilotLive().seed);
+  install('claude-code', { port: PORT, forwarder: HOOK_FORWARDER }, path.join(E2E_ROOT, 'claude', 'settings.json'));
 }
 
 export default defineConfig({
