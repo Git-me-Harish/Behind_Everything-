@@ -18,7 +18,7 @@ export function ReplayBar() {
     <footer className="replay" aria-label="Replay">
       <button className="icon-btn" onClick={() => store.step(-1)} disabled={!n || pos === 0} aria-label="Step back one event" title="Step back ([)"><SkipBack size={14} /></button>
       <button className="icon-btn" onClick={() => store.togglePlay()} disabled={!n} aria-label={playing ? 'Pause replay' : 'Replay this session'} title="Play / pause (Space)">
-        {playing ? <Pause size={14} /> : <Play size={14} />} {playing ? 'Pause' : live ? 'Replay' : 'Play'}
+        {playing ? <Pause size={14} /> : <Play size={14} />} <span className="btn-label">{playing ? 'Pause' : live ? 'Replay' : 'Play'}</span>
       </button>
       <button className="icon-btn" onClick={() => store.step(1)} disabled={!n || live} aria-label="Step forward one event" title="Step forward (])"><SkipForward size={14} /></button>
       <select value={speed} onChange={e => store.setSpeed(Number(e.target.value))} aria-label="Replay speed">
@@ -30,10 +30,10 @@ export function ReplayBar() {
         aria-label="Replay position" aria-valuetext={at ? `Event ${pos} of ${n}, ${clock(at.ts)}` : undefined}
       />
       <span className="pos" title={at ? dateTime(at.ts) : undefined}>
-        {n ? `${live ? n : pos} / ${n}${at ? ` · ${clock(at.ts)}` : ''}` : 'No events'}
+        {n ? <>{live ? n : pos} / {n}<span className="hide-narrow">{at ? ` · ${clock(at.ts)}` : ''}</span></> : 'No events'}
       </span>
-      <button className="icon-btn live-btn" aria-pressed={live} onClick={() => store.goLive()} title="Follow live (L)">
-        <Radio size={14} /> {live ? 'Live' : 'Go live'}
+      <button className="icon-btn live-btn" aria-pressed={live} onClick={() => store.goLive()} title="Follow live (L)" aria-label={live ? 'Live' : 'Go live'}>
+        <Radio size={14} /> <span className="btn-label">{live ? 'Live' : 'Go live'}</span>
       </button>
     </footer>
   );

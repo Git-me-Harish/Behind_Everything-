@@ -21,15 +21,15 @@ export function TopBar({ theme, setTheme, onMenu }: { theme: ThemeChoice; setThe
   return (
     <header className="topbar">
       <button className="icon-btn ghost only-narrow" onClick={onMenu} aria-label="Sessions"><Menu size={16} /></button>
-      <div className="brand"><BrandMark /> Behind Everything</div>
-      <span className="tag" title="Capture: reading Claude Code's own transcripts — no configuration, read-only">Claude Code · log</span>
+      <div className="brand"><BrandMark /> <span className="brand-name">Behind Everything</span></div>
+      <span className="tag hide-narrow" title="Capture: reading Claude Code's own transcripts — no configuration, read-only">Claude Code · log</span>
       <div className="spacer" />
-      <span className="conn" role="status" aria-live="polite" title={source ? `Watching ${source.files} transcript file(s) in ${source.root}` : undefined}>
+      <span className="conn" role="status" aria-live="polite" aria-label={c.label} title={source ? `Watching ${source.files} transcript file(s) in ${source.root}` : undefined}>
         <span className={`dot ${c.dot}${connection === 'live' ? ' pulse' : ''}`} style={connection === 'live' ? { boxShadow: '0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent)' } : undefined} />
-        {c.label}
+        <span className="hide-narrow">{c.label}</span>
       </span>
-      <button className="icon-btn" onClick={() => store.toggleCoverage(true)} title="What Behind Everything can and cannot see">
-        <ScanEye size={15} /> Coverage
+      <button className="icon-btn" onClick={() => store.toggleCoverage(true)} title="What Behind Everything can and cannot see" aria-label="Coverage">
+        <ScanEye size={15} /> <span className="hide-narrow">Coverage</span>
       </button>
       <button className="icon-btn" onClick={() => setTheme(NEXT_THEME[theme])} title={`Theme: ${theme}`} aria-label={`Theme: ${theme}. Switch theme`}>
         <ThemeIcon size={15} />
