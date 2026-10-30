@@ -34,8 +34,10 @@ export default defineConfig({
     browserName: (process.env.PW_BROWSER as 'chromium' | 'firefox' | 'webkit' | undefined) ?? 'chromium',
     // Locally, an installed Edge/Chrome avoids downloading a browser: PW_CHANNEL=msedge pnpm test:e2e
     channel: process.env.PW_CHANNEL || undefined,
-    // Headless Chromium on machines without a GPU needs SwiftShader allowed explicitly for WebGL.
-    launchOptions: process.env.PW_BROWSER && process.env.PW_BROWSER !== 'chromium' ? {} : { args: ['--enable-unsafe-swiftshader'] },
+    // The tests are about the 3D map, so make sure GPU-less machines still get WebGL: headless Chromium needs
+    // SwiftShader allowed explicitly, and headless Firefox on Linux blocklists its software WebGL.
+    launchOptions: process.env.PW_BROWSER === 'firefox' ? { firefoxUserPrefs: { 'webgl.force-enabled': true } }
+      : process.env.PW_BROWSER === 'webkit' ? {} : { args: ['--enable-unsafe-swiftshader'] },
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
   },
