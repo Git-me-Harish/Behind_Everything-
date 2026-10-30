@@ -90,6 +90,12 @@ describe('Claude Code adapter', () => {
     expect(ev.map(e => e.kind)).toEqual(['session.start', 'system.unknown']);
   });
 
+  it('ignores session bookkeeping records (permission mode, cost summary)', () => {
+    const rec = (o: object) => JSON.stringify({ sessionId: SESSION, ...o });
+    const { events: ev } = parseAll([rec({ type: 'permission-mode', permissionMode: 'auto' }), rec({ type: 'cost-state', totalCostUSD: 1.2 })].join('\n'));
+    expect(ev.filter(e => e.kind === 'system.unknown')).toEqual([]);
+  });
+
   it('does not treat background task notifications as prompts', () => {
     const { events: ev } = parseAll(JSON.stringify({ type: 'user', uuid: 'u', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z', origin: { kind: 'task-notification' }, message: { role: 'user', content: 'task done' } }));
     expect(ev.some(e => e.kind === 'user.prompt')).toBe(false);
