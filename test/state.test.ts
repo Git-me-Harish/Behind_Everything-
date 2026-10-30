@@ -40,6 +40,19 @@ describe('state engine', () => {
     expect(final.agents.main!.phase).toBe('delivering');
   });
 
+  it('places agents in the world: thinking happens where the agent is, a new prompt calls it back', () => {
+    const read = stateAfter(events, call('t-read', 'succeeded'));
+    expect(read.agents.main!.zone).toBe('explorer');
+    const s = structuredClone(read);
+    const reasoning = events.find(e => e.kind === 'assistant.reasoning')!;
+    applyEvent(s, { ...reasoning, id: 'r2', ts: read.last_ts! });
+    expect(s.agents.main).toMatchObject({ phase: 'thinking', zone: 'explorer' });
+    expect(s.zones.explorer.status).toBe('active');
+    applyEvent(s, { ...events.find(e => e.kind === 'turn.start')!, id: 'turn2', ts: read.last_ts! });
+    expect(s.agents.main).toMatchObject({ phase: 'thinking', zone: 'mission' });
+    expect(final.agents.main!.zone).toBe('review');
+  });
+
   it('infers repair after a failure, with evidence, and clears it on a green run', () => {
     const s = stateAfter(events, call('t-edit2', 'started'));
     expect(s.agents.main).toMatchObject({ phase: 'repairing', phase_source: 'inferred' });

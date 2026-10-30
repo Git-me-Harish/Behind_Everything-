@@ -25,6 +25,11 @@ export interface AgentState {
   /** Event ids that justify the current phase. */
   phase_evidence: string[];
   activity?: { call_id?: string; kind: EventKind; summary: string; started_at: string };
+  /**
+   * Where the agent is in the workspace. Follows the phase, except that thinking happens wherever the
+   * agent already is — only a new prompt calls it back to Mission Control.
+   */
+  zone: ZoneId;
   finished: boolean;
 }
 
@@ -120,7 +125,10 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
       break;
     case 'turn.start':
       s.turn = { index: s.turn.index + 1, id: e.turn_id, started_at: e.ts, open: true, edits: {} };
-      for (const a of Object.values(s.agents)) if (!a.parent) setPhase(a, 'thinking', e);
+      for (const a of Object.values(s.agents)) if (!a.parent) {
+        setPhase(a, 'thinking', e);
+        if (!a.finished) a.zone = 'mission';
+      }
       break;
     case 'turn.end':
       s.turn.open = false;
@@ -268,7 +276,7 @@ function ensureAgent(s: SessionState, e: CanonicalEvent): AgentState {
     id: e.agent_id,
     parent: e.agent_id === 'main' ? undefined : pending?.parent ?? 'main',
     label: e.agent_id === 'main' ? 'Claude' : pending?.label ?? 'Subagent',
-    phase: 'idle', phase_source: 'observed', phase_since: e.ts, phase_evidence: [], finished: false,
+    phase: 'idle', phase_source: 'observed', phase_since: e.ts, phase_evidence: [], zone: 'mission', finished: false,
   };
   s.agents[e.agent_id] = agent;
   return agent;
@@ -278,6 +286,7 @@ function setPhase(a: AgentState, phase: Phase, e: CanonicalEvent, source: Source
   if (a.finished) return;
   if (a.phase !== phase) a.phase_since = e.ts;
   a.phase = phase;
+  if (phase !== 'thinking') a.zone = PHASE_ZONE[phase];
   a.phase_source = source;
   a.phase_evidence = [...evidence, e.id];
 }
@@ -323,7 +332,7 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0
 
 function refreshZones(s: SessionState) {
   const z = s.zones;
-  const occupied = new Set(Object.values(s.agents).filter(a => !a.finished).map(a => PHASE_ZONE[a.phase]));
+  const occupied = new Set(Object.values(s.agents).filter(a => !a.finished).map(a => a.zone));
   const set = (id: ZoneId, label: string, count: number, status: ZoneStatus, source_class: SourceClass = 'observed', last_event?: string) => {
     z[id] = { id, label, count, status: status === 'idle' && occupied.has(id) ? 'active' : status === 'ok' && occupied.has(id) ? 'active' : status, source_class, last_event };
   };
