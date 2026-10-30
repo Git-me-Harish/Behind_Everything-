@@ -237,6 +237,10 @@ docs/            PLAN, CAPABILITIES
 - **Measured** (Windows 11, Intel HD Graphics 400 — a low-end integrated GPU — Edge, continuous panning): **60.3 fps at 1440×900, 57.8 fps at 2560×1440**, 11 draw calls, ~7.4k triangles. Idle: 0 fps; ambient motion: 30 fps. Event-to-pixel (WebSocket message → frame on screen): asserted < 250 ms in the browser tests. Only the selected session is drawn, so the cost does not grow with the number of sessions the collector is tailing (measured with one live session).
 - Found by measuring: the 30 fps idle-motion cap was also throttling frames requested by input, so dragging ran at 22 fps whenever an agent was busy; input and data changes now always draw on the next frame.
 
+**Phase 3.1 — delivered notes**
+- **Claude's mascot as the agent.** The pixel creature from Claude Code's banner, sampled from the original (17×5 pixels, each 4:9), is one drawing (`web/src/world/clawd.ts`) used twice: extruded into a voxel figure in the map, and as a crisp SVG wherever Claude appears in the 2D UI. In 3D its front and back legs step in turn, the body rocks, the arms type while a tool runs and wave while it waits for you, it blinks every few seconds (a timer wakes the otherwise idle render loop for ~5 frames, so idle still costs nothing), and at rest it turns to face the viewer. Subagents are smaller mascots in their own colours; other assistants keep people (`AgentModel.avatar`). Every figure now turns smoothly instead of snapping.
+- **Collapsible sessions list.** One button (and `s`): the column slides shut on wide screens and the choice is remembered; on narrow screens it is a drawer with a tap-to-close backdrop and `Esc`. The closed list is `inert`, so it leaves the tab order.
+
 **Phase 4 — Codex + Copilot CLI adapters, hook bridge**
 - Adapters from fixtures; `hooks install` for all three (writes to user config with backup + clean uninstall); Approval Gate live for all.
 - ✅ Exit: same task run in all three assistants renders comparably; coverage differences shown honestly.

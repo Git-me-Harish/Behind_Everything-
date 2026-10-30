@@ -30,9 +30,9 @@ Nothing to configure in Claude Code. Options: `pnpm start -- --help`.
 
 | | |
 | --- | --- |
-| **Sessions** | Every recent Claude Code session, live ones marked. Pick one to explore. |
+| **Sessions** | Every recent Claude Code session, live ones marked. Pick one to explore. Collapse the list (top-left button or `s`) for a wider workspace; it stays the way you left it. On phones it is a drawer. |
 | **Agents** | Claude and any subagents, each with its current phase (exploring, implementing, testing, waiting for you…) and the tool call it is running, with a live timer. |
-| **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude and its subagents walk the corridors to the room of what they are doing now. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
+| **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude — its pixel mascot, in voxels — and its subagents (smaller mascots in their own colours) walk the corridors to the room of what they are doing now; they type while a tool runs, wave while waiting for you, and blink now and then. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
 | **Needs attention** | Failed tests and commands, blocked actions, questions for you, edit loops, commands running too long. Click to jump to the evidence. |
 | **Timeline** | Every action, grouped by turn: tool calls paired with their results, exit codes, durations, diff sizes. Filter by kind, failures, agent or file; search everything. |
 | **Details** | The full story of one action: command and output, the actual diff, the plan, the question and your answer, permission decisions — and the raw transcript record it came from. |
@@ -47,7 +47,7 @@ the events behind it — for example the Repair Bay, or a test run that exited 0
 
 ### Keyboard
 
-`j`/`k` next/previous · `Esc` close · `/` search · `f` failures only · `Space` play/pause · `[` `]` step · `l` live · `?` help
+`j`/`k` next/previous · `Esc` close · `/` search · `f` failures only · `Space` play/pause · `[` `]` step · `l` live · `s` sessions list · `?` help
 
 On the map: drag to move · Ctrl/⌘ + scroll, trackpad pinch or two-finger pinch to zoom · with the map focused, arrow keys move, `+`/`−` zoom, `0` fits.
 Full screen (⤢) gives the map every gesture; `Esc` returns.
