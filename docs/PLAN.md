@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.6 · 2026-10-31 — Phases 0–3 delivered; Phase 4 under way: Codex and Copilot CLI adapters delivered (see [CAPABILITIES.md](CAPABILITIES.md)); next: hook bridge
+Status: v0.7 · 2026-10-31 — Phases 0–4 delivered: Claude Code, Codex and Copilot CLI adapters and the opt-in hook bridge (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 5 hardening & packaging
 
 ---
 
@@ -260,6 +260,14 @@ docs/            PLAN, CAPABILITIES
 - Subagents get their own agent id (the spawning call id), so the reducer now pairs a subagent with its call by id before falling back to order.
 - The real data exposed a classifier gap that affected every assistant on Windows: `& 'C:\…\python3.12.exe' -m pytest` and versioned Pythons were plain commands. Program paths, the PowerShell call operator and `.exe`/`.cmd` suffixes are now normalised — the local Copilot session went from 6 to 68 test runs and 0 to 49 checks.
 - Token usage is shown as unavailable for Copilot (only shutdown totals, repeated across resumes) instead of as zero.
+
+**Phase 4 — delivered notes (hook bridge)**
+- Verified the surfaces on the installed versions before building: Claude Code 2.1.251 and Codex 0.164 both have a `PermissionRequest` hook; neither sends the call id with it. Claude Code also has HTTP hooks, but a failed one prints a "hook error" in your transcript whenever Behind Everything is not running — so both use a command hook that runs in the background, never decides and exits 0 silently.
+- The hook names the tool and input, not the call: the collector matches it to the call the log already shows running by the one-line summary the adapters compute (shared functions, so both sides agree exactly), waiting up to 30 s for a log line that lags. The answer still comes from the log — approval, refusal, or the call finishing — so the hook only ever adds "waiting".
+- `hooks install | uninstall | status`: writes to the user config with a backup, keeps the user's own hooks, is idempotent, follows port changes and refuses to touch an unparsable file. Codex's per-hook trust (a hash in `config.toml`) is internal, so the installer explains the `/hooks` step instead of writing it.
+- Alerts across sessions: the collector tracks what each session waits on (approvals from hooks or Copilot, questions from any assistant) and sends it with the session list; the UI shows it in the list, the tab title and, opt-in, as desktop notifications.
+- Found on the way: the UI could miss events that arrived between its first load and its live connection (only reconnects backfilled) — it now catches up on every connection. The top bar now fits a 390 px phone with touch-size buttons.
+- Not possible headlessly: a real `PermissionRequest` (`claude -p` refuses without asking). The path is tested end to end with the installed forwarder against a running collector and the browser.
 
 **Phase 5 — Hardening & packaging**
 - Retention + redacted export with preview, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), onboarding, `npx` package, troubleshooting docs, Copilot-in-VS-Code adapter if Phase 0 found a supported surface.

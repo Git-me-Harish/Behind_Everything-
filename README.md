@@ -33,7 +33,7 @@ Nothing to configure in any of them. Options: `pnpm start -- --help`.
 | **Sessions** | Every recent Claude Code, Codex and Copilot session, live ones marked, each with its assistant's mark. Pick one to explore. Collapse the list (top-left button or `s`) for a wider workspace; it stays the way you left it. On phones it is a drawer. |
 | **Agents** | Claude and any subagents, each with its current phase (exploring, implementing, testing, waiting for you…) and the tool call it is running, with a live timer. |
 | **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude — its pixel mascot, in voxels — and its subagents (smaller mascots in their own colours) walk the corridors to the room of what they are doing now; they type while a tool runs, wave while waiting for you, and blink now and then. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
-| **Needs attention** | Failed tests and commands, blocked actions, questions for you, edit loops, commands running too long. Click to jump to the evidence. |
+| **Needs attention** | Approvals and questions waiting for you, failed tests and commands, blocked actions, edit loops, commands running too long. Click to jump to the evidence. |
 | **Timeline** | Every action, grouped by turn: tool calls paired with their results, exit codes, durations, diff sizes. Filter by kind, failures, agent or file; search everything. |
 | **Details** | The full story of one action: command and output, the actual diff, the plan, the question and your answer, permission decisions — and the raw transcript record it came from. |
 | **Replay** | Drag the scrubber or press play: the whole screen shows the session exactly as it was at that moment. |
@@ -44,6 +44,25 @@ Nothing to configure in any of them. Options: `pnpm start -- --help`.
 **Honest by design.** Anything derived rather than read directly is marked *inferred* (dashed outline, `~`) and links to
 the events behind it — for example the Repair Bay, or a test run that exited 0 but whose output reports failures
 (usually a piped command). The model's private reasoning is never shown; only that it reasoned, and for how long.
+
+### Know when an agent is waiting for you
+
+A session waiting on you (an approval or a question) gets a pulsing amber dot and a **Waiting for you** pill in the
+sessions list, and the tab title counts them — `(1) Waiting`. Turn on the bell in the top bar for a desktop
+notification; clicking it opens that session.
+
+Copilot logs its approval prompts as they open, so they show up with nothing to install. Claude Code and Codex only
+write an approval once you have answered it; to see their prompts while they wait, opt in to the hook bridge:
+
+```sh
+pnpm hooks install     # adds one background PermissionRequest hook to Claude Code and Codex (config backed up first)
+pnpm hooks status      # installed? receiving?
+pnpm hooks uninstall   # removes exactly what install added
+```
+
+The hook only forwards the request to Behind Everything on 127.0.0.1. It never answers a prompt, never blocks, prints
+nothing, and does nothing when Behind Everything is not running. Codex runs a new hook only after you trust it
+(`/hooks` in the Codex CLI). Details: [docs/CAPABILITIES.md](docs/CAPABILITIES.md#hook-bridge-opt-in--claude-code-and-codex).
 
 ### Keyboard
 

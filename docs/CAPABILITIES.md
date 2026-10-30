@@ -30,7 +30,7 @@ Zero configuration, read-only. Latency ≈ the time Claude Code takes to flush a
 | API errors / retries | `system.error` | observed | ✅ verified | |
 | Context compaction | `session.compaction` | observed | ✅ verified | |
 | Subagents | `subagent.start/end`, per-agent events | observed (pairing inferred) | ⚠️ synthetic only | No local trace yet; agent ↔ spawning call paired FIFO |
-| **Pending** permission prompt (not yet answered) | — | unavailable | ❌ | Written only after the decision → needs hooks (Phase 4) |
+| **Pending** permission prompt (not yet answered) | `permission.decision` `pending` | observed (hook) | ✅ opt-in | Not in the transcript until decided → [hook bridge](#hook-bridge-opt-in--claude-code-and-codex) |
 | Session end / process exit | — | unavailable | ❌ | Transcript has no end marker → needs `SessionEnd` hook |
 | Unrecognised record types | `system.unknown` | — | ✅ | Counted and shown as drift |
 
@@ -67,7 +67,7 @@ first closes them. Event ids come from Codex's own ids, so a thread continued in
 | Token usage, compaction | `usage.tokens`, `session.compaction` | observed | ✅ verified | |
 | Calls whose end was never logged | result `cancelled` | **inferred** | ✅ verified | Closed when their turn ends |
 | Subagents | — | unavailable | ❌ | Not seen in Codex logs yet |
-| **Pending** approval prompt | — | unavailable | ❌ | Not written until answered → hooks (planned) |
+| **Pending** approval prompt | `permission.decision` `pending` | observed (hook) | ✅ opt-in | Not written until answered → [hook bridge](#hook-bridge-opt-in--claude-code-and-codex) |
 | Unrecognised records | `system.unknown` | — | ✅ | Counted and shown as drift |
 
 Local drift checks for every assistant: `pnpm test:local` (never runs in CI, never writes your content anywhere).
@@ -106,6 +106,27 @@ model call that requests no tools. Event ids come from Copilot's own ids.
 | Token usage | — | unavailable | ❌ | Only session totals at shutdown, repeated across resumes — not shown rather than shown wrong |
 | Calls whose end was never logged | result `cancelled` | **inferred** | ✅ verified | Closed when the turn ends, or when the session process ends (shutdown, resume) |
 | Unrecognised records | `system.unknown` | — | ✅ | Counted and shown as drift |
+
+## Hook bridge (opt-in) — Claude Code and Codex
+
+`pnpm hooks install` (or `behind-everything hooks install`) adds one `PermissionRequest` hook to `~/.claude/settings.json`
+and `~/.codex/hooks.json` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` respected). Your config is backed up first and your own
+hooks are kept; `hooks uninstall` removes exactly what was added; `hooks status` shows whether calls are arriving.
+
+The hook is a dependency-free forwarder (`~/.behind-everything/behind-everything-hook.mjs`) that runs in the background
+(`async`), posts the request to the collector on 127.0.0.1, gives up after a second and always exits 0 without
+output. It **never decides** an approval and does nothing when Behind Everything is not running.
+
+| Signal | Event kind | Class | Status | Notes |
+|---|---|---|---|---|
+| Approval prompt waiting for you | `permission.decision` `pending` (capture `hook`) | observed | ✅ end-to-end on synthetic data | Neither assistant sends the call id with the request: it is matched to the call the log shows running, by the same one-line summary the adapter computes. Requests that arrive before their log line wait up to 30 s; the rest are counted as unmatched (Coverage shows the counts) |
+| How it was answered | from the log, as before | observed / inferred | ✅ | The approval or refusal in the transcript, or the call simply finishing, clears the wait |
+| Codex | | | ⚠️ trust step | Codex runs a new hook only after you trust it (`/hooks` in the Codex CLI); install warns if hooks are switched off in `config.toml` |
+
+A real `PermissionRequest` cannot be produced headlessly: `claude -p` refuses without asking (checked on 2.1.251), so
+the payload follows the documented schema and the bridge is tested with the installed forwarder against a live collector.
+The UI marks sessions waiting for you in the list, counts them in the tab title, and can send a desktop notification
+(opt-in bell in the top bar) — for approvals from the hook bridge or Copilot's log, and questions from any assistant.
 
 ## Copilot Chat in VS Code
 
