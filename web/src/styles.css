@@ -223,6 +223,16 @@ kbd { font: 600 11px var(--font-mono); padding: 1px 6px; border-radius: 4px; bor
 .stat b { display: block; font: 650 16px var(--font-mono); letter-spacing: -0.02em; }
 .stat small { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 
+/* Workspace header: view switch; the map's own styles load with it (world/world.css). */
+.board-hint { font-size: 11.5px; }
+.segmented { margin-left: auto; display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); flex: none; }
+.segmented button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; font-weight: 500; }
+.segmented button:hover { color: var(--text); background: var(--panel-2); }
+.segmented button[aria-checked='true'] { background: var(--accent-soft); color: var(--accent); }
+.segmented button:disabled { opacity: 0.45; cursor: not-allowed; }
+.notice { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px dashed var(--line-strong); background: var(--panel-2); font-size: 12.5px; color: var(--text-2); }
+.world-loading { height: clamp(280px, min(62vh, 64vw + 56px), 760px); display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+
 /* Agents */
 .agents { display: flex; gap: 10px; flex-wrap: wrap; }
 .agent {
@@ -366,6 +376,48 @@ pre.code, .diff {
 .cap-table td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 
 .banner { padding: 8px 16px; background: color-mix(in srgb, var(--warn) 14%, var(--panel)); border-bottom: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); font-size: 12.5px; grid-column: 1 / -1; }
+
+/* ── Phones (and narrow windows) ───────────────────────────────────────── */
+.brand-name { white-space: nowrap; }
+@media (max-width: 600px) {
+  .hide-narrow { display: none !important; }
+  .topbar { gap: 6px; padding: 0 8px; }
+  .topbar .icon-btn { padding: 0 8px; }
+  .main { padding: 12px 12px 0; gap: 12px; }
+  .session-header h1 { font-size: 17px; }
+  .session-header > div:first-child { flex-basis: 100%; }
+  .stat-row { margin-left: 0; width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .stat { min-width: 0; padding: 6px 8px; }
+  .stat b { font-size: 14.5px; }
+  .stat small { font-size: 9px; letter-spacing: 0.02em; display: block; overflow: hidden; text-overflow: ellipsis; }
+  .agent { max-width: 100%; }
+  .agent .what { max-width: calc(100vw - 110px) !important; }
+  .board-hint { display: none; }
+  .segmented button { padding: 0 8px; }
+  .filters .search { width: 100%; }
+  .row { grid-template-columns: 56px 18px 18px minmax(0, 1fr) auto; gap: 6px; padding: 0 10px; }
+  .row .kind { display: none; }
+  .turn-row { padding: 0 10px; }
+  .replay { gap: 6px; padding: 0 8px; }
+  .replay .btn-label { display: none; }
+  .replay .pos { min-width: 0; }
+  .replay select { padding: 0 2px; }
+  .inspector { top: 52px !important; bottom: 56px !important; right: 0 !important; width: 100vw !important; border-radius: 0 !important; }
+  .dialog { max-height: 90vh; }
+  .kv { grid-template-columns: 90px minmax(0, 1fr); }
+}
+@media (max-width: 420px) {
+  .replay .pos { display: none; }
+  .replay input[type='range'] { min-width: 60px; }
+}
+@media (max-width: 380px) {
+  .brand-name { display: none; }
+}
+/* Touch screens: comfortable targets. */
+@media (hover: none) and (pointer: coarse) {
+  .icon-btn { min-height: 36px; min-width: 36px; }
+  .chip { height: 32px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

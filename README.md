@@ -4,7 +4,7 @@ See what your AI coding agent is actually doing.
 
 Behind Everything is a local-first app that watches Claude Code (and later Codex and GitHub Copilot) sessions
 as they run and turns their real activity — files read, edits made, commands run, tests, approvals, subagents —
-into a live workspace map, a searchable timeline and replayable sessions.
+into a live 3D workspace, a searchable timeline and replayable sessions.
 
 Every signal is labelled **observed**, **inferred** or **unavailable**. Nothing leaves your machine.
 
@@ -32,7 +32,7 @@ Nothing to configure in Claude Code. Options: `pnpm start -- --help`.
 | --- | --- |
 | **Sessions** | Every recent Claude Code session, live ones marked. Pick one to explore. |
 | **Agents** | Claude and any subagents, each with its current phase (exploring, implementing, testing, waiting for you…) and the tool call it is running, with a live timer. |
-| **Workspace** | Nine zones — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Agents appear in the zone they are working in. Click a zone for its details and to focus the timeline on it. |
+| **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude and its subagents walk the corridors to the room of what they are doing now. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
 | **Needs attention** | Failed tests and commands, blocked actions, questions for you, edit loops, commands running too long. Click to jump to the evidence. |
 | **Timeline** | Every action, grouped by turn: tool calls paired with their results, exit codes, durations, diff sizes. Filter by kind, failures, agent or file; search everything. |
 | **Details** | The full story of one action: command and output, the actual diff, the plan, the question and your answer, permission decisions — and the raw transcript record it came from. |
@@ -48,6 +48,16 @@ the events behind it — for example the Repair Bay, or a test run that exited 0
 ### Keyboard
 
 `j`/`k` next/previous · `Esc` close · `/` search · `f` failures only · `Space` play/pause · `[` `]` step · `l` live · `?` help
+
+On the map: drag to move · Ctrl/⌘ + scroll, trackpad pinch or two-finger pinch to zoom · with the map focused, arrow keys move, `+`/`−` zoom, `0` fits.
+Full screen (⤢) gives the map every gesture; `Esc` returns.
+
+### Devices and browsers
+
+Works on phones, tablets, laptops and large screens, with touch, mouse, pen or keyboard, in Chrome, Edge, Firefox and Safari
+(browser tests run on Chromium, Firefox and WebKit at seven screen sizes). The 3D map needs WebGL 2; without it — or if
+the graphics driver gives up — the flat board takes over and says why. *Reduce motion* is honoured: agents and the
+camera jump instead of moving.
 
 ## API
 

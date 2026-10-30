@@ -26,6 +26,8 @@ export interface AppState {
   filter: Filter;
   showCoverage: boolean;
   showShortcuts: boolean;
+  /** The workspace map fills the window. */
+  expanded: boolean;
 }
 
 type Listener = () => void;
@@ -34,8 +36,10 @@ class Store {
   state: AppState = {
     connection: 'connecting', sessions: [], sessionsLoaded: false, events: [], activities: [], loading: false,
     live: initialState(''), cursor: null, playing: false, speed: 4, selection: null, filter: emptyFilter(),
-    showCoverage: false, showShortcuts: false,
+    showCoverage: false, showShortcuts: false, expanded: false,
   };
+  /** performance.now() when the newest live events arrived — the world measures event-to-pixel latency from it. */
+  arrivedAt = 0;
   private listeners = new Set<Listener>();
   private replay?: ReplayIndex;
   private ws?: WebSocket;
@@ -135,6 +139,7 @@ class Store {
   /** Live events arrive in batches; coalesce into one render per animation frame. */
   private receive(events: StoredEvent[]) {
     const id = this.state.sessionId;
+    if (events.some(e => e.session_id === id)) this.arrivedAt = performance.now();
     this.pending.push(...events.filter(e => e.session_id === id));
     if (!id && events.length) void this.refreshSessions().then(() => {
       const first = this.state.sessions[0];
@@ -246,6 +251,7 @@ class Store {
 
   toggleCoverage(show = !this.state.showCoverage) { this.set({ showCoverage: show }); }
   toggleShortcuts(show = !this.state.showShortcuts) { this.set({ showShortcuts: show }); }
+  toggleExpanded(on = !this.state.expanded) { this.set({ expanded: on }); }
 
   private syncUrl() {
     const p = new URLSearchParams();

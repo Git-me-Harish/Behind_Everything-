@@ -103,11 +103,16 @@ test('README screenshots', async () => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.keyboard.press('Escape');
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  // Earlier tests leave the page scrolled; every shot starts from the top, with the map settled.
+  const top = async () => { await page.evaluate(() => document.querySelector('.main')?.scrollTo(0, 0)); await page.waitForTimeout(900); };
+  await top();
   await page.screenshot({ path: 'docs/images/overview.png' });
   await page.getByRole('button', { name: 'Edits', exact: true }).click();
   await timeline().getByRole('option').first().click();
+  await top();
   await page.screenshot({ path: 'docs/images/inspector.png' });
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await zone('Repair Bay').click();
+  await top();
   await page.screenshot({ path: 'docs/images/dark-repair.png' });
 });

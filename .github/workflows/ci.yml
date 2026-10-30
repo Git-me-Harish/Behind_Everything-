@@ -33,8 +33,12 @@ jobs:
       - run: pnpm build
 
   e2e:
-    name: e2e (ubuntu, chromium)
+    name: e2e (ubuntu, ${{ matrix.browser }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -45,11 +49,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      # Headless Firefox on Linux has no GL at all, so it would (correctly) fall back to the 2D board. Run it
+      # headed on a virtual display with Mesa's software OpenGL so the 3D map itself is tested.
+      - if: matrix.browser == 'firefox'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libegl1
+      - run: ${{ matrix.browser == 'firefox' && 'xvfb-run -a ' || '' }}pnpm test:e2e
+        env:
+          PW_BROWSER: ${{ matrix.browser }}
+          PW_HEADED: ${{ matrix.browser == 'firefox' && '1' || '' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: test-results/
           retention-days: 7

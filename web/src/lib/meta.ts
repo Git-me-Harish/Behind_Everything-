@@ -3,7 +3,7 @@ import {
   MessageSquare, Package, Plug, ShieldCheck, Sparkles, SquareTerminal, TriangleAlert, User, Wrench, type LucideIcon,
 } from 'lucide-react';
 import type { EventKind, SourceClass } from '../../../src/core/schema.ts';
-import type { Phase, ZoneId } from '../../../src/core/state.ts';
+import type { AgentState, Phase, ZoneId } from '../../../src/core/state.ts';
 
 export type Category = 'conversation' | 'explore' | 'plan' | 'edit' | 'verify' | 'run' | 'external' | 'people' | 'agents' | 'system';
 
@@ -94,3 +94,11 @@ export const CAPABILITIES: Array<{ signal: string; state: 'yes' | 'partial' | 'n
 ];
 
 export const AGENT_COLORS = ['#d97757', '#3b82c4', '#8b5cf6', '#16a34a', '#db2777', '#0891b2', '#ca8a04'];
+
+/** Stable colour per agent: Claude (main) is clay, subagents cycle through the palette by first appearance. */
+export function agentColor(agents: Record<string, AgentState>, id: string): string {
+  if (id === 'main') return AGENT_COLORS[0]!;
+  const subs = Object.keys(agents).filter(a => a !== 'main');
+  const i = subs.indexOf(id);
+  return AGENT_COLORS[1 + ((i < 0 ? subs.length : i) % (AGENT_COLORS.length - 1))]!;
+}
