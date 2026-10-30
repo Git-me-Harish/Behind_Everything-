@@ -151,7 +151,7 @@ export function createCodexParser(file: string) {
       const reads = kind === 'file.read' ? readTargets(command).map(rel) : [];
       return {
         kind, tool, ts: lastTs, turn: turnId, command,
-        summary: reads.length ? `Read ${reads.join(', ')}` : kind === 'file.search' ? `Search: ${oneLine(command, 120)}` : oneLine(command, 140),
+        summary: shellSummary(command, rel),
         resources: reads.length ? reads.map(ref => ({ type: 'file' as const, ref })) : [{ type: 'command', ref: truncate(command, 500) }],
         escalated: args.sandbox_permissions === 'require_escalated' ? String(args.justification ?? 'outside the sandbox') : undefined,
       };
@@ -468,6 +468,13 @@ export function createCodexParser(file: string) {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/** How a shell call is named. Shared with the hook bridge, which must name a call exactly as the log does. */
+export function shellSummary(command: string, rel: (p: string) => string = p => p): string {
+  const kind = classifyShell(command);
+  const reads = kind === 'file.read' ? readTargets(command).map(rel) : [];
+  return reads.length ? `Read ${reads.join(', ')}` : kind === 'file.search' ? `Search: ${oneLine(command, 120)}` : oneLine(command, 140);
+}
 
 /** The command line a shell call runs: `["pwsh", "-Command", "ls"]` → `ls`. */
 export function commandText(cmd: unknown): string {

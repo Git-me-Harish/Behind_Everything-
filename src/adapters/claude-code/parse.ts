@@ -203,7 +203,7 @@ export function createClaudeParser(file: string) {
       } else if (b.type === 'tool_use') {
         const input: Json = b.input ?? {};
         const kind = classifyClaudeTool(b.name, input);
-        const call: PendingCall = { kind, tool: b.name, input, ts: o.timestamp ?? lastTs, resources: resourcesOf(b.name, input), summary: callSummary(b.name, input) };
+        const call: PendingCall = { kind, tool: b.name, input, ts: o.timestamp ?? lastTs, resources: resourcesOf(b.name, input), summary: callSummary(b.name, input, rel) };
         calls.set(b.id, call);
         out.push(ev(o, `${b.id}:call`, {
           kind, actor: 'assistant', tool: b.name, status: kind === 'user.question' ? 'pending' : 'started',
@@ -235,30 +235,7 @@ export function createClaudeParser(file: string) {
     return [{ type: 'tool', ref: tool }];
   }
 
-  function callSummary(tool: string, input: Json): string {
-    const file = input.file_path ?? input.notebook_path;
-    switch (tool) {
-      case 'Read': return `Read ${rel(String(file))}`;
-      case 'Write': return `Write ${rel(String(file))}`;
-      case 'Edit': case 'MultiEdit': case 'NotebookEdit': return `Edit ${rel(String(file))}`;
-      case 'Glob': return `Find ${input.pattern}`;
-      case 'Grep': return `Search "${oneLine(String(input.pattern), 80)}"`;
-      case 'Bash': case 'PowerShell': return oneLine(String(input.description || input.command), 140);
-      case 'WebFetch': return `Fetch ${input.url}`;
-      case 'WebSearch': return `Search web "${oneLine(String(input.query), 80)}"`;
-      case 'Agent': case 'Task': return `Subagent: ${oneLine(String(input.description ?? input.subagent_type ?? 'task'), 100)}`;
-      case 'TodoWrite': {
-        const todos: Json[] = Array.isArray(input.todos) ? input.todos : [];
-        return `Plan ${todos.filter(t => t.status === 'completed').length}/${todos.length} done`;
-      }
-      case 'TaskCreate': return `Task: ${oneLine(String(input.subject ?? input.description ?? ''), 100)}`;
-      case 'TaskUpdate': return `Task ${input.taskId ?? ''} → ${input.status ?? 'updated'}`;
-      case 'EnterPlanMode': return 'Entered plan mode';
-      case 'ExitPlanMode': return 'Proposed a plan';
-      case 'AskUserQuestion': return `Asked: ${oneLine(String(input.questions?.[0]?.question ?? 'a question'), 120)}`;
-      default: return tool.startsWith('mcp__') ? tool.split('__').slice(1).join(' · ') : tool;
-    }
-  }
+
 
   function callPayload(tool: string, input: Json): Json {
     switch (tool) {
@@ -302,4 +279,30 @@ function patchLines(patch: unknown): string[] {
     for (const l of h?.lines ?? []) if (typeof l === 'string' && out.length < MAX_PATCH_LINES) out.push(clipLine(l));
   }
   return out;
+}
+
+/** What a tool call is about, in one line. Shared with the hook bridge, which must name a call exactly as the log does. */
+export function callSummary(tool: string, input: Json, rel: (p: string) => string = p => p): string {
+  const file = input.file_path ?? input.notebook_path;
+  switch (tool) {
+    case 'Read': return `Read ${rel(String(file))}`;
+    case 'Write': return `Write ${rel(String(file))}`;
+    case 'Edit': case 'MultiEdit': case 'NotebookEdit': return `Edit ${rel(String(file))}`;
+    case 'Glob': return `Find ${input.pattern}`;
+    case 'Grep': return `Search "${oneLine(String(input.pattern), 80)}"`;
+    case 'Bash': case 'PowerShell': return oneLine(String(input.description || input.command), 140);
+    case 'WebFetch': return `Fetch ${input.url}`;
+    case 'WebSearch': return `Search web "${oneLine(String(input.query), 80)}"`;
+    case 'Agent': case 'Task': return `Subagent: ${oneLine(String(input.description ?? input.subagent_type ?? 'task'), 100)}`;
+    case 'TodoWrite': {
+      const todos: Json[] = Array.isArray(input.todos) ? input.todos : [];
+      return `Plan ${todos.filter(t => t.status === 'completed').length}/${todos.length} done`;
+    }
+    case 'TaskCreate': return `Task: ${oneLine(String(input.subject ?? input.description ?? ''), 100)}`;
+    case 'TaskUpdate': return `Task ${input.taskId ?? ''} → ${input.status ?? 'updated'}`;
+    case 'EnterPlanMode': return 'Entered plan mode';
+    case 'ExitPlanMode': return 'Proposed a plan';
+    case 'AskUserQuestion': return `Asked: ${oneLine(String(input.questions?.[0]?.question ?? 'a question'), 120)}`;
+    default: return tool.startsWith('mcp__') ? tool.split('__').slice(1).join(' · ') : tool;
+  }
 }
