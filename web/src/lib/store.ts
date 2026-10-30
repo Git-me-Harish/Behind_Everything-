@@ -28,6 +28,18 @@ export interface AppState {
   showShortcuts: boolean;
   /** The workspace map fills the window. */
   expanded: boolean;
+  /** Sessions list docked beside the page (wide screens; remembered). */
+  sidebar: boolean;
+  /** Sessions list open as a drawer over the page (narrow screens). */
+  drawer: boolean;
+}
+
+/** Below this width the sessions list is a drawer instead of a column. Keep in step with styles.css. */
+export const NARROW = '(max-width: 860px)';
+const SIDEBAR_KEY = 'be.sidebar';
+
+function readSidebar(): boolean {
+  try { return localStorage.getItem(SIDEBAR_KEY) !== 'closed'; } catch { return true; }
 }
 
 type Listener = () => void;
@@ -36,7 +48,7 @@ class Store {
   state: AppState = {
     connection: 'connecting', sessions: [], sessionsLoaded: false, events: [], activities: [], loading: false,
     live: initialState(''), cursor: null, playing: false, speed: 4, selection: null, filter: emptyFilter(),
-    showCoverage: false, showShortcuts: false, expanded: false,
+    showCoverage: false, showShortcuts: false, expanded: false, sidebar: readSidebar(), drawer: false,
   };
   /** performance.now() when the newest live events arrived — the world measures event-to-pixel latency from it. */
   arrivedAt = 0;
@@ -253,6 +265,16 @@ class Store {
   toggleShortcuts(show = !this.state.showShortcuts) { this.set({ showShortcuts: show }); }
   toggleExpanded(on = !this.state.expanded) { this.set({ expanded: on }); }
 
+  /** Shows or hides the sessions list: collapses the column on wide screens, opens the drawer on narrow ones. */
+  toggleSidebar() {
+    if (matchMedia(NARROW).matches) return this.set({ drawer: !this.state.drawer });
+    const sidebar = !this.state.sidebar;
+    this.set({ sidebar });
+    try { localStorage.setItem(SIDEBAR_KEY, sidebar ? 'open' : 'closed'); } catch { /* private mode */ }
+  }
+
+  closeDrawer() { if (this.state.drawer) this.set({ drawer: false }); }
+
   private syncUrl() {
     const p = new URLSearchParams();
     if (this.state.sessionId) p.set('session', this.state.sessionId);
@@ -272,6 +294,20 @@ export { getJson };
 
 export function useApp<T>(select: (s: AppState) => T): T {
   return useSyncExternalStore(store.subscribe, () => select(store.state));
+}
+
+/** True while a media query matches, e.g. `useMedia(NARROW)`. */
+export function useMedia(query: string): boolean {
+  const mq = useMemo(() => matchMedia(query), [query]);
+  return useSyncExternalStore(cb => {
+    mq.addEventListener('change', cb);
+    return () => mq.removeEventListener('change', cb);
+  }, () => mq.matches);
+}
+
+/** Which assistant the open session belongs to (decides, among other things, who the agents look like). */
+export function useAssistant(): string {
+  return useApp(s => s.sessions.find(x => x.id === s.sessionId)?.assistant ?? 'claude-code');
 }
 
 /** The session state at the replay cursor, or live. Recomputed only when the cursor or data changes. */

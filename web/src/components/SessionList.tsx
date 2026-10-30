@@ -20,7 +20,7 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
   }, [sessions, q]);
 
   return (
-    <nav className={`sidebar${open ? ' open' : ''}`} aria-label="Sessions">
+    <nav id="sessions" className={`sidebar${open ? ' open' : ''}`} aria-label="Sessions" inert={!open}>
       <div className="sidebar-head">
         <div className="section-title">Sessions</div>
         <label className="search">

@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 import type { SourceClass } from '../../../src/core/schema.ts';
 import type { AgentState, ZoneId } from '../../../src/core/state.ts';
 import type { Activity } from '../lib/activities.ts';
-import { SOURCE_INFO } from '../lib/meta.ts';
+import { AGENT_COLORS, SOURCE_INFO } from '../lib/meta.ts';
+import { useAssistant } from '../lib/store.ts';
+import { CLAWD_COLS, CLAWD_ROWS, clawdRuns, PIXEL } from '../world/clawd.ts';
 
 export { agentColor } from '../lib/meta.ts';
 
@@ -44,7 +46,28 @@ export function SourceTag({ source, why }: { source: SourceClass; why?: string }
   );
 }
 
+const CLAWD_RUNS = clawdRuns();
+
+/** Claude's pixel mascot, from the same drawing as the 3D figure in the map. */
+export function ClawdIcon({ color = AGENT_COLORS[0]!, className = 'clawd' }: { color?: string; className?: string }) {
+  return (
+    <svg className={className} viewBox={`0 0 ${CLAWD_COLS * PIXEL.w} ${CLAWD_ROWS * PIXEL.h}`} shapeRendering="crispEdges" aria-hidden>
+      {CLAWD_RUNS.map(r => (
+        <rect key={`${r.part}${r.row}-${r.col}`} x={r.col * PIXEL.w} y={r.row * PIXEL.h} width={r.len * PIXEL.w} height={PIXEL.h} fill={r.part === 'eye' ? 'var(--clawd-eye)' : color} />
+      ))}
+    </svg>
+  );
+}
+
 export function Avatar({ agent, color, busy }: { agent: Pick<AgentState, 'id' | 'label'>; color: string; busy?: boolean }) {
+  const assistant = useAssistant();
+  if (agent.id === 'main' && assistant === 'claude-code') {
+    return (
+      <span className={`avatar mascot${busy ? ' busy' : ''}`} style={{ color }} title={agent.label} aria-label={agent.label}>
+        <ClawdIcon color={color} />
+      </span>
+    );
+  }
   const letter = agent.id === 'main' ? 'C' : (agent.label.trim()[0] ?? 'S').toUpperCase();
   return (
     <span className={`avatar${busy ? ' busy' : ''}`} style={{ background: color, color }} title={agent.label} aria-label={agent.label}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { CoverageDialog, ShortcutsDialog } from './components/Dialogs.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { Agents, Attention, SessionHeader } from './components/Overview.tsx';
@@ -9,12 +9,11 @@ import { TopBar } from './components/TopBar.tsx';
 import { Workspace } from './components/Workspace.tsx';
 import { asOf, buildRows, type Row } from './lib/activities.ts';
 import { clock } from './lib/format.ts';
-import { store, useApp, useView } from './lib/store.ts';
+import { NARROW, store, useApp, useMedia, useView } from './lib/store.ts';
 import { useTheme } from './lib/theme.ts';
 
 export function App() {
   const [theme, setTheme] = useTheme();
-  const [menu, setMenu] = useState(false);
   const events = useApp(s => s.events);
   const activities = useApp(s => s.activities);
   const filter = useApp(s => s.filter);
@@ -24,6 +23,9 @@ export function App() {
   const sessionId = useApp(s => s.sessionId);
   const sessionsLoaded = useApp(s => s.sessionsLoaded);
   const expanded = useApp(s => s.expanded);
+  const sidebar = useApp(s => s.sidebar);
+  const drawer = useApp(s => s.drawer);
+  const narrow = useMedia(NARROW);
   const view = useView();
 
   useEffect(() => { void store.start(); }, []);
@@ -40,9 +42,10 @@ export function App() {
   useKeyboard(rows);
 
   return (
-    <div className={`app${selection ? '' : ' no-inspector'}${expanded ? ' map-expanded' : ''}`}>
-      <TopBar theme={theme} setTheme={setTheme} onMenu={() => setMenu(!menu)} />
-      <SessionList open={menu} onPick={() => setMenu(false)} />
+    <div className={`app${selection ? '' : ' no-inspector'}${expanded ? ' map-expanded' : ''}${sidebar ? '' : ' side-closed'}`}>
+      <TopBar theme={theme} setTheme={setTheme} sessionsOpen={narrow ? drawer : sidebar} narrow={narrow} />
+      <SessionList open={narrow ? drawer : sidebar} onPick={() => store.closeDrawer()} />
+      {narrow && drawer && <div className="drawer-scrim" aria-hidden onClick={() => store.closeDrawer()} />}
       <main className="main" aria-label="Session overview">
         {connection === 'offline' && <div className="banner" role="alert">Can’t reach the collector. Is <span className="mono">behind-everything</span> still running? Retrying…</div>}
         {cursor !== null && (
@@ -89,6 +92,7 @@ function useKeyboard(rows: Row[]) {
       if (e.key === 'Escape') {
         if (typing) return target.blur();
         if (store.state.showCoverage || store.state.showShortcuts) { store.toggleCoverage(false); store.toggleShortcuts(false); return; }
+        if (store.state.drawer && matchMedia(NARROW).matches) return store.closeDrawer();
         if (store.state.selection) return store.clearSelection();
         if (store.state.expanded) return store.toggleExpanded(false);
         return;
@@ -110,6 +114,7 @@ function useKeyboard(rows: Row[]) {
         case '[': store.step(-1); break;
         case ']': store.step(1); break;
         case 'l': store.goLive(); break;
+        case 's': store.toggleSidebar(); break;
         case '?': store.toggleShortcuts(true); break;
       }
     };

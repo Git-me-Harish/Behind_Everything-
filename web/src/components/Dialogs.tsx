@@ -64,7 +64,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
 const SHORTCUTS: Array<[string, string]> = [
   ['j / ↓', 'Next activity'], ['k / ↑', 'Previous activity'], ['Esc', 'Close details / clear selection'],
   ['/', 'Search the timeline'], ['f', 'Toggle “failures only”'], ['Space', 'Play / pause replay'],
-  ['[ / ]', 'Step back / forward one event'], ['l', 'Go live'], ['?', 'This help'],
+  ['[ / ]', 'Step back / forward one event'], ['l', 'Go live'], ['s', 'Show / hide the sessions list'], ['?', 'This help'],
 ];
 
 export function ShortcutsDialog() {

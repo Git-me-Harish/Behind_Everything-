@@ -12,6 +12,7 @@ import { demoSession, SESSION } from '../test/fixtures/claude.ts';
 type Stats = { frames: number; drawCalls: number; triangles: number; zoom: number; eventToPixelMs?: number };
 const stats = (page: Page) => page.evaluate(() => ({ ...(window as unknown as { __be: { world: Stats } }).__be.world }));
 const roomAt = (page: Page, zone: string) => page.evaluate(z => (window as unknown as { __be: { room(z: string): { x: number; y: number } } }).__be.room(z), zone);
+const agentAt = (page: Page, id: string) => page.evaluate(i => (window as unknown as { __be: { agent(i: string): { x: number; y: number } | undefined } }).__be.agent(i), id);
 const map = (page: Page) => page.getByRole('group', { name: /Workspace map/ });
 const room = (page: Page, name: string) => map(page).getByRole('button', { name: new RegExp(`^${name}:`) });
 const ROOMS = ['Repository Explorer', 'Planning Desk', 'Implementation', 'Tools & Dependencies', 'Mission Control', 'Test & Build Lab', 'Approval Gate', 'Review & Delivery', 'Repair Bay'];
@@ -70,6 +71,20 @@ test('clicking a room on the map opens it; dragging moves the map without select
   await page.mouse.up();
   await expect.poll(async () => (await room(page, 'Mission Control').boundingBox())!.x).toBeGreaterThan(before.x + 40);
   await expect(details).toBeHidden();
+});
+
+test('Claude is its pixel mascot, in the map and beside it; clicking the figure itself picks Claude', async ({ page }) => {
+  await open(page);
+  const tag = map(page).getByRole('button', { name: /^Claude:/ });
+  await expect(tag.locator('.initial.mascot svg rect')).not.toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Agents' }).locator('.avatar.mascot svg')).toBeVisible();
+  // Click the 3D figure (not its tag): it is a real, pickable object in the scene.
+  await expect.poll(() => agentAt(page, 'main')).toBeTruthy();
+  const p = (await agentAt(page, 'main'))!;
+  await page.mouse.click(p.x, p.y);
+  // Idle at the end of the demo, so picking Claude filters the timeline to it (a running tool would open instead).
+  await expect(tag).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('region', { name: 'Agents' }).getByRole('button', { name: /Claude/ })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('zooms with ctrl+wheel, the buttons and the keyboard; a plain wheel scrolls the page and explains', async ({ page }) => {

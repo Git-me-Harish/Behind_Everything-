@@ -57,6 +57,10 @@
 .wl-agent[aria-pressed="true"] .agent-tag .phase { color: rgba(255, 255, 255, 0.85); }
 .wl-agent.finished { opacity: 0.6; }
 .agent-tag .initial { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--ac); color: #fff; font: 700 9.5px var(--font-mono); }
+/* Claude's tag carries its mascot instead of a letter; on the pressed (clay) tag it turns white to stay visible. */
+.agent-tag .initial.mascot { width: 22px; height: 16px; margin-left: 3px; border-radius: 0; background: transparent; }
+.agent-tag .initial.mascot .clawd { width: 22px; height: auto; display: block; }
+.wl-agent[aria-pressed="true"] .agent-tag .initial.mascot rect:not([fill^="var"]) { fill: #fff; }
 .agent-tag .phase { color: var(--muted); font: 600 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; font-variant-ligatures: none; }
 .wl-agent .doing {
   display: none; order: -1; max-width: 220px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line);

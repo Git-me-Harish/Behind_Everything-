@@ -5,7 +5,7 @@ import {
 } from 'three';
 import { ZONES, type ZoneId, type ZoneStatus } from '../../../src/core/state.ts';
 import { BACK, bounds, clampView, fit, mix, onScreen, panBy, RIGHT, sameView, UP, zoomAround, type Bounds, type View, type Viewport } from './camera.ts';
-import { buildStatic, FLOOR, personGeometry, SLOTS, STATUS_SLOT, type Slot } from './build.ts';
+import { buildStatic, clawdGeometry, FLOOR, personGeometry, SLOTS, STATUS_SLOT, type ClawdGeometry, type Slot } from './build.ts';
 import { footprint, ROOM, roomCenter, roomCorners, WALL_H } from './layout.ts';
 import type { AgentModel, RoomModel, WorldModel } from './model.ts';
 import { retarget, spawn, step, walking, type Walker } from './motion.ts';
@@ -39,20 +39,43 @@ const DRAG_THRESHOLD = 5;
 const AMBIENT_FRAME_MS = 1000 / 30;
 const PAD = { x: 18, top: 64, bottom: 18 };
 const LABEL_INSET = 2.4;
+const BLINK_MS = 140;
+/** The mascot is its face: standing still, it turns towards the viewer (the camera sits along +x +z), a little to one side so it keeps its depth. */
+const FACE_VIEWER = Math.PI / 4 - 0.45;
 
-interface Person {
+type FadeMaterial = MeshBasicMaterial | MeshLambertMaterial;
+
+/** The meshes of one avatar kind, before the shared shadow and selection ring are added. */
+interface Body {
+  /** What a click on the agent hits. */
+  hit: Mesh;
+  meshes: Mesh[];
+  legs: Mesh[];
+  arms: Mesh[];
+  eyes?: Mesh;
+  shadow: BufferGeometry;
+  /** Materials faded together, with their full opacity. */
+  fades: Array<[FadeMaterial, number]>;
+  /** Geometries owned by this agent alone (the mascot's are shared). */
+  owned: BufferGeometry[];
+  /** Where the tag floats, above the floor, before scaling. */
+  height: number;
+  scale: number;
+}
+
+interface Person extends Body {
   w: Walker;
   model: AgentModel;
   obj: Group;
-  torso: Mesh;
-  legs: [Mesh, Mesh];
   ring: Mesh;
-  mats: { torso: MeshLambertMaterial; legs: MeshLambertMaterial; shadow: MeshBasicMaterial; ring: MeshBasicMaterial };
-  geometries: BufferGeometry[];
   /** 0..1, for fading in on arrival and out on leaving. */
   alpha: number;
   leaving: boolean;
   stride: number;
+  /** Next time this agent blinks (mascot only). */
+  blinkAt: number;
+  /** Where the body points; eases towards the walking direction or resting pose instead of snapping. */
+  facing: number;
 }
 
 interface CellRef { glow: boolean; i: number; slot: Slot }
@@ -79,6 +102,8 @@ export class World {
   private pulseGeo = new RingGeometry(0.8, 1.05, 40).rotateX(-Math.PI / 2);
   private pulses: Array<{ mesh: Mesh; t: number }> = [];
   private people = new Map<string, Person>();
+  private clawd?: ClawdGeometry;
+  private blinkTimer = 0;
   private model?: WorldModel;
   private opts: UpdateOptions = { snap: true, timeScale: 1 };
   private lastEvents: Partial<Record<ZoneId, string>> = {};
@@ -211,8 +236,20 @@ export class World {
   /** Where a room's floor centre is on screen, in page coordinates — for tests and tooling. */
   roomOnScreen(z: ZoneId): { x: number; y: number } {
     const c = roomCenter(z);
+    return this.toPage(c.x, FLOOR, c.z);
+  }
+
+  /** Where an agent's body is on screen, in page coordinates — for tests and tooling. */
+  agentOnScreen(id: string): { x: number; y: number } | undefined {
+    const p = this.people.get(id);
+    if (!p) return undefined;
+    const { x, y, z } = p.obj.position;
+    return this.toPage(x, y + p.height * 0.35 * p.obj.scale.y, z);
+  }
+
+  private toPage(x: number, y: number, z: number) {
     this.applyCamera();
-    const v = new Vector3(c.x, FLOOR, c.z).project(this.camera);
+    const v = new Vector3(x, y, z).project(this.camera);
     const r = this.host.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * this.vp.width, y: r.top + ((1 - v.y) / 2) * this.vp.height };
   }
@@ -228,7 +265,7 @@ export class World {
     for (const [id, person] of [...this.people]) {
       this.removePerson(id);
       const fresh = this.addPerson(person.model, person.w);
-      Object.assign(fresh, { alpha: person.alpha, leaving: person.leaving, stride: person.stride });
+      Object.assign(fresh, { alpha: person.alpha, leaving: person.leaving, stride: person.stride, blinkAt: person.blinkAt, facing: person.facing });
     }
     this.applyPalette();
     if (this.model) for (const z of ZONES) this.paintRoom(this.model.rooms[z]);
@@ -269,9 +306,11 @@ export class World {
   dispose() {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
+    clearTimeout(this.blinkTimer);
     for (const o of this.observers) o.disconnect();
     for (const c of this.cleanup) c();
     for (const id of [...this.people.keys()]) this.removePerson(id);
+    if (this.clawd) for (const g of Object.values(this.clawd)) if (g instanceof BufferGeometry) g.dispose();
     this.scene.traverse(o => {
       if (o instanceof Mesh) {
         o.geometry.dispose();
@@ -374,35 +413,63 @@ export class World {
   // ── people ──────────────────────────────────────────────────────────────────
 
   private addPerson(a: AgentModel, w: Walker): Person {
+    const body = a.avatar === 'clawd' ? this.clawdBody(a) : this.humanBody(a);
+    const radius = a.avatar === 'clawd' ? 0.95 : 0.5;
+    const shadowMat = new MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.16, depthWrite: false });
+    const ringMat = new MeshBasicMaterial({ color: a.color, transparent: true, opacity: 0.9, depthWrite: false });
+    const shadow = new Mesh(body.shadow, shadowMat);
+    shadow.position.y = 0.01;
+    const ringGeo = new RingGeometry(radius, radius + 0.12, 40).rotateX(-Math.PI / 2);
+    const ring = new Mesh(ringGeo, ringMat);
+    ring.position.y = 0.02;
+    body.hit.userData.agent = a.id;
+    const obj = new Group();
+    obj.add(shadow, ring, ...body.meshes);
+    obj.scale.setScalar(body.scale);
+    this.scene.add(obj);
+    const person: Person = {
+      ...body, w, model: a, obj, ring, fades: [...body.fades, [shadowMat, 0.16], [ringMat, 0.9]], owned: [...body.owned, ringGeo],
+      alpha: 1, leaving: false, stride: 0, blinkAt: performance.now() + 1500 + Math.random() * 3000, facing: w.yaw,
+    };
+    this.people.set(a.id, person);
+    return person;
+  }
+
+  private humanBody(a: AgentModel): Body {
     const g = personGeometry(new Color(a.color), this.palette);
     const torsoMat = new MeshLambertMaterial({ vertexColors: true, transparent: true });
     const legMat = new MeshLambertMaterial({ color: this.palette.legs, transparent: true });
-    const shadowMat = new MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.16, depthWrite: false });
-    const ringMat = new MeshBasicMaterial({ color: a.color, transparent: true, opacity: 0.9, depthWrite: false });
-    const obj = new Group();
     const torso = new Mesh(g.torso, torsoMat);
-    torso.userData.agent = a.id;
-    const legs: [Mesh, Mesh] = [new Mesh(g.leg, legMat), new Mesh(g.leg, legMat)];
+    const legs = [new Mesh(g.leg, legMat), new Mesh(g.leg, legMat)];
     legs.forEach((l, i) => l.position.set(i ? 0.1 : -0.1, 0.4, 0));
-    const shadow = new Mesh(g.shadow, shadowMat);
-    shadow.position.y = 0.01;
-    const ringGeo = new RingGeometry(0.5, 0.62, 32).rotateX(-Math.PI / 2);
-    const ring = new Mesh(ringGeo, ringMat);
-    ring.position.y = 0.02;
-    obj.add(shadow, ring, torso, ...legs);
-    obj.scale.setScalar(a.main ? 1.12 : 0.95);
-    this.scene.add(obj);
-    const person: Person = { w, model: a, obj, torso, legs, ring, mats: { torso: torsoMat, legs: legMat, shadow: shadowMat, ring: ringMat }, geometries: [g.torso, g.leg, g.shadow, ringGeo], alpha: 1, leaving: false, stride: 0 };
-    this.people.set(a.id, person);
-    return person;
+    return {
+      hit: torso, meshes: [torso, ...legs], legs, arms: [], shadow: g.shadow, fades: [[torsoMat, 1], [legMat, 1]],
+      owned: [g.torso, g.leg, g.shadow], height: 1.75, scale: a.main ? 1.12 : 0.95,
+    };
+  }
+
+  /** Claude's pixel mascot. Subagents are smaller and wear their own colour. */
+  private clawdBody(a: AgentModel): Body {
+    const g = (this.clawd ??= clawdGeometry());
+    const skin = new MeshLambertMaterial({ color: a.color, transparent: true });
+    const eyeMat = new MeshBasicMaterial({ color: 0x1d1714, transparent: true });
+    const body = new Mesh(g.body, skin);
+    const eyes = new Mesh(g.eye, eyeMat);
+    eyes.position.y = g.eyeY;
+    const arms = [new Mesh(g.armL, skin), new Mesh(g.armR, skin)];
+    const legs = [new Mesh(g.legFront, skin), new Mesh(g.legBack, skin)];
+    return {
+      hit: body, meshes: [body, eyes, ...arms, ...legs], legs, arms, eyes, shadow: g.shadow, fades: [[skin, 1], [eyeMat, 1]],
+      owned: [], height: g.height + 0.4, scale: a.main ? 1 : 0.72,
+    };
   }
 
   private removePerson(id: string) {
     const p = this.people.get(id);
     if (!p) return;
     this.scene.remove(p.obj);
-    for (const m of Object.values(p.mats)) m.dispose();
-    for (const g of p.geometries) g.dispose();
+    for (const [m] of p.fades) m.dispose();
+    for (const g of p.owned) g.dispose();
     this.people.delete(id);
   }
 
@@ -464,7 +531,7 @@ export class World {
     this.raf = 0;
     const dt = Math.min(0.1, this.last ? (now - this.last) / 1000 : 1 / 60);
     const moving = this.animate(dt, now);
-    const ambient = !this.reducedMotion && this.ambient();
+    const ambient = !this.reducedMotion && this.ambient(now);
     // Only gentle idle motion left: 30 fps is plenty and halves the GPU work. Input and data never wait.
     if (!moving && !this.dirty && ambient && now - this.lastAmbient < AMBIENT_FRAME_MS) {
       this.schedule();
@@ -475,7 +542,10 @@ export class World {
     this.lastAmbient = now;
     this.render(now);
     if (moving || ambient) this.schedule();
-    else this.last = 0;
+    else {
+      this.last = 0;
+      this.wakeForBlink(now);
+    }
   };
 
   /** Advances everything time-based. Returns true while something is in motion. */
@@ -504,7 +574,7 @@ export class World {
         moving = true;
         if (p.leaving && p.alpha === 0) { this.removePerson(id); continue; }
       }
-      this.pose(p, now, walked);
+      if (this.pose(p, now, dt, walked)) moving = true;
     }
     const closed = !!this.model?.rooms.approval.gateClosed;
     const angle = closed ? 0 : 1.35;
@@ -529,31 +599,68 @@ export class World {
     return moving;
   }
 
-  /** Idle animation worth keeping the loop alive for: busy agents and the repair beacon. */
-  private ambient() {
+  /** Idle animation worth keeping the loop alive for: busy, thinking or waiting agents, blinks and the repair beacon. */
+  private ambient(now: number) {
     if (this.model?.rooms.repair.beacon) return true;
-    for (const p of this.people.values()) if (p.model.busy || p.model.thinking) return true;
+    for (const p of this.people.values()) {
+      if (p.model.busy || p.model.thinking || p.model.waiting) return true;
+      if (p.eyes && now >= p.blinkAt && now < p.blinkAt + BLINK_MS) return true;
+    }
     return false;
   }
 
-  private pose(p: Person, now: number, walked: boolean) {
-    const { obj, legs, model } = p;
-    let bob = 0, swing = 0;
-    if (walked && !this.reducedMotion) {
-      swing = Math.sin(p.stride * 13) * 0.55;
-      bob = Math.abs(Math.sin(p.stride * 13)) * 0.06;
-    } else if (!this.reducedMotion && model.busy) bob = Math.max(0, Math.sin(now / 140 + p.w.pos.x)) * 0.035;
-    else if (!this.reducedMotion && model.thinking) obj.rotation.z = Math.sin(now / 700) * 0.03;
+  /** With nothing else moving the loop sleeps; wake it for the next blink so the mascots never look frozen. */
+  private wakeForBlink(now: number) {
+    clearTimeout(this.blinkTimer);
+    if (this.reducedMotion || !this.visible || this.disposed) return;
+    let next = Infinity;
+    for (const p of this.people.values()) if (p.eyes && !p.leaving) next = Math.min(next, p.blinkAt);
+    if (next < Infinity) this.blinkTimer = window.setTimeout(this.invalidate, Math.max(0, next - now));
+  }
+
+  /** Poses one agent for this frame. Returns true while it is still turning. */
+  private pose(p: Person, now: number, dt: number, walked: boolean): boolean {
+    const { obj, legs, arms, model } = p;
+    const animate = !this.reducedMotion;
+    const clawd = model.avatar === 'clawd';
+    const want = clawd && !walked ? FACE_VIEWER : p.w.yaw;
+    const turn = Math.atan2(Math.sin(want - p.facing), Math.cos(want - p.facing));
+    p.facing = animate ? p.facing + Math.sign(turn) * Math.min(Math.abs(turn), dt * 9) : want;
+    let bob = 0, sway = 0, swing = 0;
+    const lift = [0, 0], reach = [0, 0];
+    if (walked && animate) {
+      const s = Math.sin(p.stride * (clawd ? 11 : 13));
+      swing = s * 0.55;
+      bob = Math.abs(s) * (clawd ? 0.035 : 0.06);
+      // The mascot scuttles: front and back legs lift in turn, the body rocks, the arms pump.
+      if (clawd) [lift[0], lift[1], reach[0], reach[1], sway] = [Math.max(0, s) * 0.08, Math.max(0, -s) * 0.08, s * 0.03, -s * 0.03, s * 0.05];
+    } else if (animate && model.waiting) {
+      // Waiting for you: waves.
+      reach[1] = (0.5 + 0.5 * Math.sin(now / 150)) * 0.18;
+    } else if (animate && model.busy) {
+      bob = Math.max(0, Math.sin(now / 140 + p.w.pos.x)) * 0.035;
+      // At work: typing, one arm after the other.
+      reach[0] = Math.max(0, Math.sin(now / 85)) * 0.06;
+      reach[1] = Math.max(0, -Math.sin(now / 85)) * 0.06;
+    } else if (animate && model.thinking) sway = Math.sin(now / 700) * (clawd ? 0.05 : 0.03);
     obj.position.set(p.w.pos.x, FLOOR + bob, p.w.pos.z);
-    obj.rotation.y = p.w.yaw;
-    legs[0].rotation.x = swing;
-    legs[1].rotation.x = -swing;
+    obj.rotation.set(0, p.facing, sway);
+    if (clawd) {
+      legs.forEach((l, i) => (l.position.y = lift[i]!));
+      arms.forEach((a, i) => (a.position.y = reach[i]!));
+    } else {
+      legs[0]!.rotation.x = swing;
+      legs[1]!.rotation.x = -swing;
+    }
+    if (p.eyes) {
+      if (now >= p.blinkAt + BLINK_MS) p.blinkAt = now + 2200 + Math.random() * 3800;
+      p.eyes.scale.y = animate && now >= p.blinkAt ? 0.15 : 1;
+    }
     p.ring.visible = this.opts.focusAgent === model.id || this.hover?.agent === model.id;
     const fade = p.alpha * (model.finished ? 0.55 : 1);
-    p.mats.torso.opacity = p.mats.legs.opacity = fade;
-    p.mats.shadow.opacity = 0.16 * fade;
-    p.mats.ring.opacity = 0.9 * fade;
+    for (const [m, full] of p.fades) m.opacity = full * fade;
     obj.visible = fade > 0.01;
+    return Math.abs(Math.sin(want - p.facing)) > 1e-3 || Math.cos(want - p.facing) < 0;
   }
 
   private render(now: number) {
@@ -587,7 +694,7 @@ export class World {
       // Over the back half of the room: the label's foot sits between the room's centre and its far corner.
       put(`zone:${z}`, c.x - LABEL_INSET, WALL_H, c.z - LABEL_INSET);
     }
-    for (const [id, p] of this.people) if (!p.leaving) put(`agent:${id}`, p.obj.position.x, p.obj.position.y + 1.75 * p.obj.scale.y, p.obj.position.z);
+    for (const [id, p] of this.people) if (!p.leaving) put(`agent:${id}`, p.obj.position.x, p.obj.position.y + p.height * p.obj.scale.y, p.obj.position.z);
     this.on.labels(out, ROOM * Math.SQRT2 * this.view.zoom);
   }
 
@@ -734,9 +841,9 @@ export class World {
     if (target !== this.canvas) return undefined;
     this.applyCamera();
     this.ray.setFromCamera(new Vector2((x / this.vp.width) * 2 - 1, -(y / this.vp.height) * 2 + 1), this.camera);
-    const torsos: Object3D[] = [];
-    for (const p of this.people.values()) if (!p.leaving) torsos.push(p.torso);
-    const agent = this.ray.intersectObjects(torsos, false)[0]?.object.userData.agent as string | undefined;
+    const bodies: Object3D[] = [];
+    for (const p of this.people.values()) if (!p.leaving) bodies.push(p.hit);
+    const agent = this.ray.intersectObjects(bodies, false)[0]?.object.userData.agent as string | undefined;
     if (agent) return { agent };
     const hit = this.ray.ray.intersectPlane(this.floor, new Vector3());
     if (!hit) return undefined;

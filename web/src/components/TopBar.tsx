@@ -1,4 +1,4 @@
-import { CircleHelp, Menu, Monitor, Moon, ScanEye, Sun } from 'lucide-react';
+import { CircleHelp, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ScanEye, Sun } from 'lucide-react';
 import { store, useApp } from '../lib/store.ts';
 import type { ThemeChoice } from '../lib/theme.ts';
 import { BrandMark } from './ui.tsx';
@@ -12,7 +12,7 @@ const CONN = {
 
 const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: 'light', light: 'dark', dark: 'system' };
 
-export function TopBar({ theme, setTheme, onMenu }: { theme: ThemeChoice; setTheme: (t: ThemeChoice) => void; onMenu: () => void }) {
+export function TopBar({ theme, setTheme, sessionsOpen, narrow }: { theme: ThemeChoice; setTheme: (t: ThemeChoice) => void; sessionsOpen: boolean; narrow: boolean }) {
   const connection = useApp(s => s.connection);
   const health = useApp(s => s.health);
   const c = CONN[connection];
@@ -20,7 +20,16 @@ export function TopBar({ theme, setTheme, onMenu }: { theme: ThemeChoice; setThe
   const source = health?.sources[0];
   return (
     <header className="topbar">
-      <button className="icon-btn ghost only-narrow" onClick={onMenu} aria-label="Sessions"><Menu size={16} /></button>
+      <button
+        className="icon-btn ghost"
+        onClick={() => store.toggleSidebar()}
+        aria-label={sessionsOpen ? 'Hide sessions' : 'Show sessions'}
+        aria-expanded={sessionsOpen}
+        aria-controls="sessions"
+        title={`${sessionsOpen ? 'Hide' : 'Show'} sessions (s)`}
+      >
+        {narrow ? <Menu size={16} /> : sessionsOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+      </button>
       <div className="brand"><BrandMark /> <span className="brand-name">Behind Everything</span></div>
       <span className="tag hide-narrow" title="Capture: reading Claude Code's own transcripts — no configuration, read-only">Claude Code · log</span>
       <div className="spacer" />
