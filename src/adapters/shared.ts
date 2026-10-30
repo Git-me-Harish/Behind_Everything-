@@ -29,3 +29,22 @@ export function relativeTo(cwd: string | undefined, p: string): string {
   }
   return norm;
 }
+
+/** Files in an apply_patch envelope (`*** Update File: x`), with line counts and diff lines. */
+export function parsePatch(patch: string): Array<{ path: string; op: string; added: number; removed: number; patch: string[] }> {
+  const files: Array<{ path: string; op: string; added: number; removed: number; patch: string[] }> = [];
+  let cur: (typeof files)[number] | undefined;
+  for (const line of patch.split('\n')) {
+    const head = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(line);
+    if (head) {
+      cur = { path: head[2]!.trim(), op: head[1]!.toLowerCase(), added: 0, removed: 0, patch: [] };
+      files.push(cur);
+      continue;
+    }
+    if (!cur || line.startsWith('*** ')) continue;
+    if (line.startsWith('+')) cur.added++;
+    else if (line.startsWith('-')) cur.removed++;
+    if (cur.patch.length < MAX_PATCH_LINES && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' ') || line.startsWith('@@'))) cur.patch.push(clipLine(line));
+  }
+  return files;
+}

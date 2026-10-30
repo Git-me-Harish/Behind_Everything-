@@ -4,6 +4,8 @@ import { createClaudeParser } from '../adapters/claude-code/parse.js';
 import { CLAUDE_PROJECTS, isTranscript, listTranscripts } from '../adapters/claude-code/discover.js';
 import { createCodexParser } from '../adapters/codex/parse.js';
 import { CODEX_SESSIONS, isRollout, listRollouts } from '../adapters/codex/discover.js';
+import { createCopilotParser } from '../adapters/copilot-cli/parse.js';
+import { COPILOT_SESSIONS, isSessionLog, listSessionLogs } from '../adapters/copilot-cli/discover.js';
 import type { Assistant, CanonicalEvent, SessionInfo } from '../core/schema.js';
 import { createServer } from './server.js';
 import { Store, type StoredEvent } from './store.js';
@@ -20,6 +22,7 @@ export interface CollectorOptions {
   dbPath?: string;
   claudeRoot?: string;
   codexRoot?: string;
+  copilotRoot?: string;
   webRoot?: string;
   devOrigins?: string[];
   onEvents?: (events: StoredEvent[]) => void;
@@ -55,6 +58,7 @@ export async function startCollector(o: CollectorOptions = {}) {
   const sources = [
     source('claude-code', o.claudeRoot ?? CLAUDE_PROJECTS, listTranscripts, isTranscript, createClaudeParser),
     source('codex', o.codexRoot ?? CODEX_SESSIONS, listRollouts, isRollout, createCodexParser),
+    source('copilot-cli', o.copilotRoot ?? COPILOT_SESSIONS, listSessionLogs, isSessionLog, createCopilotParser),
   ];
 
   await api.listen();

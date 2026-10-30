@@ -9,7 +9,9 @@ import { listTranscripts } from '../src/adapters/claude-code/discover.js';
 import { startCollector } from '../src/collector/index.js';
 import { JsonlTailer } from '../src/collector/tailer.js';
 import type { CanonicalEvent } from '../src/core/schema.js';
+import { createCopilotParser } from '../src/adapters/copilot-cli/parse.js';
 import { demoSession, SESSION } from './fixtures/claude.js';
+import { CopilotLogBuilder } from './fixtures/copilot.js';
 
 let dir: string;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'be-test-')); });
@@ -70,6 +72,21 @@ describe('JsonlTailer', () => {
     t.read(file);
     expect(got.length).toBeGreaterThan(first);
   });
+
+  it('asks the parser what is still waiting once it has caught up (Copilot approvals)', () => {
+    const file = path.join(dir, 'events.jsonl');
+    const got: CanonicalEvent[] = [];
+    const t = new JsonlTailer({ root: dir, since: 0, list: () => [file], accept: () => true, createParser: createCopilotParser, onEvents: ev => got.push(...ev) });
+    const b = new CopilotLogBuilder().prompt('Clean up').modelCall()
+      .start('c-rm', 'powershell', { command: 'Remove-Item build', mode: 'sync' })
+      .ask('r-rm', { kind: 'shell', fullCommandText: 'Remove-Item build', toolCallId: 'c-rm' });
+    fs.writeFileSync(file, b.jsonl());
+    t.read(file);
+    expect(got.filter(e => e.kind === 'permission.decision').map(e => e.status)).toEqual(['pending']);
+    fs.appendFileSync(file, JSON.stringify({ type: 'permission.completed', id: 'done', timestamp: '2026-10-29T10:00:00Z', data: { requestId: 'r-rm', result: { kind: 'approved' }, decisionSource: 'human_response' } }) + '\n');
+    t.read(file);
+    expect(got.filter(e => e.kind === 'permission.decision').map(e => e.status)).toEqual(['pending', 'succeeded']);
+  });
 });
 
 describe('collector end-to-end', () => {
@@ -83,7 +100,7 @@ describe('collector end-to-end', () => {
 
     const port = 47900 + Math.floor(Math.random() * 90);
     const dbPath = path.join(dir, 'db.sqlite');
-    let c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath });
+    let c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), copilotRoot: path.join(root, 'no-copilot'), dbPath });
     try {
       const sessions = (await get(port, '/api/sessions')).body;
       expect(sessions).toHaveLength(1);
@@ -117,7 +134,7 @@ describe('collector end-to-end', () => {
 
       // Restart: same file re-read from the top, nothing duplicated.
       await c.close();
-      c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath });
+      c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), copilotRoot: path.join(root, 'no-copilot'), dbPath });
       const again = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
       expect(again.length).toBe(all.length);
       expect((await get(port, '/api/sessions')).body[0].event_count).toBe(all.length);
@@ -134,7 +151,7 @@ describe('collector detail endpoint', () => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, demoSession().main.jsonl());
     const port = 48000 + Math.floor(Math.random() * 90);
-    const c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), dbPath: path.join(dir, 'db.sqlite') });
+    const c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), copilotRoot: path.join(root, 'no-copilot'), dbPath: path.join(dir, 'db.sqlite') });
     try {
       const list = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
       const edit = list.find((e: any) => e.correlation?.call_id === 't-edit1' && e.status === 'succeeded');

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { classifyShell, readTargets } from '../../core/classify.js';
 import { clip, redactValue, truncate, type Redaction } from '../../core/redact.js';
 import type { CanonicalEvent, EventKind, Resource, SessionInfo, Status } from '../../core/schema.js';
-import { clipLine, lineCount, MAX_PATCH_LINES, oneLine, patchFromContent, relativeTo } from '../shared.js';
+import { clipLine, lineCount, MAX_PATCH_LINES, oneLine, parsePatch, patchFromContent, relativeTo } from '../shared.js';
 
 export const ADAPTER = { name: 'codex-log', version: '1', capture: 'log' } as const;
 
@@ -540,25 +540,6 @@ function matchBrace(s: string, start: number): number {
     else if (ch === '}' && --depth === 0) return i;
   }
   return -1;
-}
-
-/** Files in an apply_patch envelope (`*** Update File: x`), with line counts and diff lines. */
-export function parsePatch(patch: string): Array<{ path: string; op: string; added: number; removed: number; patch: string[] }> {
-  const files: Array<{ path: string; op: string; added: number; removed: number; patch: string[] }> = [];
-  let cur: (typeof files)[number] | undefined;
-  for (const line of patch.split('\n')) {
-    const head = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(line);
-    if (head) {
-      cur = { path: head[2]!.trim(), op: head[1]!.toLowerCase(), added: 0, removed: 0, patch: [] };
-      files.push(cur);
-      continue;
-    }
-    if (!cur || line.startsWith('*** ')) continue;
-    if (line.startsWith('+')) cur.added++;
-    else if (line.startsWith('-')) cur.removed++;
-    if (cur.patch.length < MAX_PATCH_LINES && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' ') || line.startsWith('@@'))) cur.patch.push(clipLine(line));
-  }
-  return files;
 }
 
 /** Line counts and diff lines of one FileChange entry: a unified diff, or the whole content of a new file. */
