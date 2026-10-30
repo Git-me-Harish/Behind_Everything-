@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.4 · 2026-10-30 — Phases 0–3 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 4, Codex + Copilot adapters
+Status: v0.5 · 2026-10-30 — Phases 0–3 delivered; Phase 4 under way: Codex adapter delivered (see [CAPABILITIES.md](CAPABILITIES.md)); next: Copilot CLI, hook bridge
 
 ---
 
@@ -244,6 +244,13 @@ docs/            PLAN, CAPABILITIES
 **Phase 4 — Codex + Copilot CLI adapters, hook bridge**
 - Adapters from fixtures; `hooks install` for all three (writes to user config with backup + clean uninstall); Approval Gate live for all.
 - ✅ Exit: same task run in all three assistants renders comparably; coverage differences shown honestly.
+
+**Phase 4 — delivered notes (Codex)**
+- Surveyed 19 real rollouts across Codex 0.142 – 0.162 before writing a line: the tool surface changed three times in that range (`shell_command` → `exec_command` with background processes → code-mode `exec` cells that call tools from a script), and structured `item_completed` records appeared alongside the raw calls. The adapter handles all of them: calls open activities, the first report (raw output or structured item) closes them, and items run inside cells are matched to their call by command text. Result over the local data: ~8,500 events, 0 unknown, 0 duplicates, every started call finished.
+- Codex reads files through the shell, so the shared classifier now also recognises read/search commands (`classifyShell`), anchored to every invoked program like the test/build rules.
+- Approvals: Codex logs no approval events, but a command that asked to leave the sandbox and then ran was approved — shown as **inferred**; a refusal is observed from the output.
+- A thread continued in a second rollout file shares the session id: event ids come from Codex's own ids, so nothing is counted twice.
+- The collector runs one tailer per assistant; the UI is assistant-aware (names, colours, coverage, session marks). Codex appears as a person in Codex green; Claude keeps its mascot.
 
 **Phase 5 — Hardening & packaging**
 - Retention + redacted export with preview, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), onboarding, `npx` package, troubleshooting docs, Copilot-in-VS-Code adapter if Phase 0 found a supported surface.

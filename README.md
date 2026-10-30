@@ -2,7 +2,7 @@
 
 See what your AI coding agent is actually doing.
 
-Behind Everything is a local-first app that watches Claude Code (and later Codex and GitHub Copilot) sessions
+Behind Everything is a local-first app that watches Claude Code and Codex (GitHub Copilot next) sessions
 as they run and turns their real activity — files read, edits made, commands run, tests, approvals, subagents —
 into a live 3D workspace, a searchable timeline and replayable sessions.
 
@@ -23,14 +23,14 @@ pnpm install
 pnpm start
 ```
 
-Your browser opens at <http://127.0.0.1:47821>. Use Claude Code as usual in any project — its activity appears live.
+Your browser opens at <http://127.0.0.1:47821>. Use Claude Code or Codex (CLI or VS Code extension) as usual in any project — its activity appears live. Logs are read from `~/.claude/projects` and `~/.codex/sessions` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` respected).
 Nothing to configure in Claude Code. Options: `pnpm start -- --help`.
 
 ## What you see
 
 | | |
 | --- | --- |
-| **Sessions** | Every recent Claude Code session, live ones marked. Pick one to explore. Collapse the list (top-left button or `s`) for a wider workspace; it stays the way you left it. On phones it is a drawer. |
+| **Sessions** | Every recent Claude Code and Codex session, live ones marked, each with its assistant's mark. Pick one to explore. Collapse the list (top-left button or `s`) for a wider workspace; it stays the way you left it. On phones it is a drawer. |
 | **Agents** | Claude and any subagents, each with its current phase (exploring, implementing, testing, waiting for you…) and the tool call it is running, with a live timer. |
 | **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude — its pixel mascot, in voxels — and its subagents (smaller mascots in their own colours) walk the corridors to the room of what they are doing now; they type while a tool runs, wave while waiting for you, and blink now and then. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
 | **Needs attention** | Failed tests and commands, blocked actions, questions for you, edit loops, commands running too long. Click to jump to the evidence. |
@@ -82,7 +82,7 @@ pnpm dev            # collector + Vite with hot reload on http://localhost:5173
 pnpm typecheck
 pnpm test           # unit + integration tests on synthetic fixtures
 pnpm test:e2e       # browser tests (PW_CHANNEL=msedge or chrome uses an installed browser)
-pnpm test:local     # drift check: parses your real ~/.claude transcripts (never leaves your machine)
+pnpm test:local     # drift check: parses your real Claude Code and Codex logs (never leaves your machine)
 ```
 
 README screenshots come from the synthetic test session: `BE_SCREENSHOTS=1 pnpm test:e2e`.

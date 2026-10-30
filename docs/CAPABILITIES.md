@@ -38,6 +38,40 @@ Derived (state engine, `inferred` where noted): agent phase per agent, *repairin
 edit-loop warnings (**inferred**), piped test/check failures (**inferred**), attention list, zone labels.
 Long-running commands (> 60 s) are flagged in the UI against the wall clock while following live.
 
-## Codex, Copilot CLI, Copilot in VS Code
+## Codex — rollout log (`codex-log` v1)
 
-Not implemented yet (Phase 4). Local log formats were surveyed in [PLAN.md §1](PLAN.md).
+Source: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (`CODEX_HOME` respected). Verified on the Codex VS Code
+extension, CLI versions 0.142 – 0.162 (19 local sessions, ~8,500 events: no unknown records, no duplicates, every
+call that starts also ends). Zero configuration, read-only.
+
+A rollout holds two streams: what the model asked for (`response_item`: messages, reasoning, tool calls and raw
+outputs) and what Codex did (`event_msg`: turns, tokens and — in newer versions — `item_completed` records with
+exact exit codes, durations, parsed commands and file changes). Calls open activities; whichever report arrives
+first closes them. Event ids come from Codex's own ids, so a thread continued in a second file adds nothing twice.
+
+| Signal | Event kind | Class | Status | Notes |
+|---|---|---|---|---|
+| Session id, cwd, git branch, CLI version, model | `session.start` / session row | observed | ✅ verified | Forked threads are their own sessions |
+| Title | `session.meta` | observed | ✅ verified | Codex has no titles: the first prompt, shortened |
+| Turns (start, end, duration, interrupted) | `turn.start`, `turn.end` | observed | ✅ verified | `task_started` / `task_complete` / `turn_aborted` |
+| Prompt | `user.prompt` | observed | ✅ verified | `UserMessage` items (or `user_message`); injected context is not a prompt |
+| Assistant messages | `assistant.message` | observed | ✅ verified | Commentary and final answers |
+| Reasoning happened | `assistant.reasoning` | observed | ✅ verified | **Content never captured** (Codex stores it encrypted) |
+| Shell commands, exit code, duration, output | `command.run` | observed | ✅ verified | `shell` / `shell_command` / `exec_command`, background processes (`write_stdin`), code-mode cells (`exec` + `wait`) |
+| File reads and searches | `file.read`, `file.search` | observed command, pattern-classified | ✅ verified | Codex reads through the shell (`Get-Content`, `cat`, `rg`…); Codex's own `parsed_cmd` names the files when present |
+| Test / build / dependency commands | `test.run`, `build.run`, `dependency.change` | observed command, pattern-classified | ✅ verified | Same classifier as Claude Code |
+| File edits with diffs | `file.edit` | observed | ✅ verified | `apply_patch` + `FileChange` items (unified diff or new content) |
+| Plan | `plan.update` | observed | ⚠️ synthetic only | `update_plan` — not in the local logs yet |
+| Approval of a command outside the sandbox | `permission.decision` | **inferred** (approved) / observed (refused) | ✅ verified | `sandbox_permissions: require_escalated`; it ran ⇒ approved (by you or a rule you saved) |
+| MCP tool calls, web search | `mcp.call`, `web.fetch` | observed | ✅ verified | |
+| Token usage, compaction | `usage.tokens`, `session.compaction` | observed | ✅ verified | |
+| Calls whose end was never logged | result `cancelled` | **inferred** | ✅ verified | Closed when their turn ends |
+| Subagents | — | unavailable | ❌ | Not seen in Codex logs yet |
+| **Pending** approval prompt | — | unavailable | ❌ | Not written until answered → hooks (planned) |
+| Unrecognised records | `system.unknown` | — | ✅ | Counted and shown as drift |
+
+Local drift checks for both assistants: `pnpm test:local` (never runs in CI, never writes your content anywhere).
+
+## Copilot CLI, Copilot in VS Code
+
+Not implemented yet. Local log formats were surveyed in [PLAN.md §1](PLAN.md).
