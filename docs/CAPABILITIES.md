@@ -70,8 +70,44 @@ first closes them. Event ids come from Codex's own ids, so a thread continued in
 | **Pending** approval prompt | — | unavailable | ❌ | Not written until answered → hooks (planned) |
 | Unrecognised records | `system.unknown` | — | ✅ | Counted and shown as drift |
 
-Local drift checks for both assistants: `pnpm test:local` (never runs in CI, never writes your content anywhere).
+Local drift checks for every assistant: `pnpm test:local` (never runs in CI, never writes your content anywhere).
 
-## Copilot CLI, Copilot in VS Code
+## Copilot CLI — session log (`copilot-log` v1)
 
-Not implemented yet. Local log formats were surveyed in [PLAN.md §1](PLAN.md).
+Source: `~/.copilot/session-state/<session>/events.jsonl` (`COPILOT_HOME` respected), written by the Copilot CLI and
+by VS Code when it hosts the same agent runtime. Built against the CLI's own event schema
+(`copilot-sdk/generated/session-events.d.ts`, shipped with the CLI) and verified on Copilot CLI 1.0.75 (2 local
+sessions, ~9,200 records → ~2,500 events: no unknown records, no duplicates, every call that starts also ends).
+Zero configuration, read-only.
+
+Every line is one typed event. Streaming deltas, idle, title and todo-change events are *ephemeral* in the schema and
+never reach the file. A Copilot "turn" is one model call, so a user interaction runs from the prompt to the first
+model call that requests no tools. Event ids come from Copilot's own ids.
+
+| Signal | Event kind | Class | Status | Notes |
+|---|---|---|---|---|
+| Session id, cwd, git branch, CLI version, model | `session.start` / session row | observed | ✅ verified | VS Code-hosted sessions log version 0.0.0: shown as unknown |
+| Title | `session.meta` | observed | ✅ verified | The first prompt, shortened (Copilot's own title event is ephemeral) |
+| Turns (start, end, interrupted, failed) | `turn.start`, `turn.end` | observed | ✅ verified | Prompt → first model call without tool requests; `abort` = interrupted; an empty model call followed by `session.error` = failed |
+| Prompt, steering messages | `user.prompt` | observed | ✅ verified | Messages injected by skills/extensions (`source`) are not prompts |
+| Assistant messages | `assistant.message` | observed | ✅ verified | |
+| Reasoning happened | `assistant.reasoning` | observed | ✅ verified | Once per model call. **Content never captured** |
+| File reads, searches, edits with diffs | `file.read`, `file.search`, `file.edit` | observed | ✅ verified | `view`, `rg`/`grep`/`glob`, `apply_patch`, `edit`, `create` (edit diffs have no line numbers: Copilot does not log them) |
+| Shell commands, exit code, output | `command.run` | observed | ✅ verified | `powershell`/`bash`; a command Copilot stopped waiting for stays running until `read_*` or a notification reports its exit code |
+| Test / build / dependency commands | `test.run`, `build.run`, `dependency.change` | observed command, pattern-classified | ✅ verified | Same classifier as the others, plus VS Code's `runTests` |
+| Todo list | `plan.update` | observed | ✅ verified | Copilot keeps todos in a SQL table; inserts and id-targeted updates/deletes made through the `sql` tool are applied |
+| Questions to you | `user.question` | observed | ✅ verified | `ask_user` |
+| Your approvals and refusals | `permission.decision` | observed | ✅ verified | `permission.completed` with `decisionSource: human_response`, session/location approvals, refusals by you, rules, hooks or policy |
+| Routine approvals by Copilot's policy | — | — | ✅ | Not shown (like Claude Code's auto-accepts) |
+| **Pending** approval prompt | `permission.decision` `pending` | observed | ✅ verified | Live: a request still open once the log is caught up is waiting — shown until its decision arrives |
+| Subagents | `subagent.start`/`end` + own agent | observed | ⚠️ synthetic only | `task` tool, `subagent.started/completed/failed`; the subagent's events carry its call id |
+| MCP tool calls, web | `mcp.call`, `web.fetch` | observed | ✅ verified | |
+| Compaction, truncation, errors | `session.compaction`, `system.error` | observed | ✅ verified | |
+| Token usage | — | unavailable | ❌ | Only session totals at shutdown, repeated across resumes — not shown rather than shown wrong |
+| Calls whose end was never logged | result `cancelled` | **inferred** | ✅ verified | Closed when the turn ends, or when the session process ends (shutdown, resume) |
+| Unrecognised records | `system.unknown` | — | ✅ | Counted and shown as drift |
+
+## Copilot Chat in VS Code
+
+Not implemented yet. VS Code's own chat history (workspace storage) is a different format; sessions where VS Code hosts
+the Copilot CLI runtime are already covered above.

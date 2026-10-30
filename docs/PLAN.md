@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.5 · 2026-10-30 — Phases 0–3 delivered; Phase 4 under way: Codex adapter delivered (see [CAPABILITIES.md](CAPABILITIES.md)); next: Copilot CLI, hook bridge
+Status: v0.6 · 2026-10-31 — Phases 0–3 delivered; Phase 4 under way: Codex and Copilot CLI adapters delivered (see [CAPABILITIES.md](CAPABILITIES.md)); next: hook bridge
 
 ---
 
@@ -251,6 +251,15 @@ docs/            PLAN, CAPABILITIES
 - Approvals: Codex logs no approval events, but a command that asked to leave the sandbox and then ran was approved — shown as **inferred**; a refusal is observed from the output.
 - A thread continued in a second rollout file shares the session id: event ids come from Codex's own ids, so nothing is counted twice.
 - The collector runs one tailer per assistant; the UI is assistant-aware (names, colours, coverage, session marks). Codex appears as a person in Codex green; Claude keeps its mascot.
+
+**Phase 4 — delivered notes (Copilot CLI)**
+- Built against the CLI's own event schema, which ships with it (`copilot-sdk/generated/session-events.d.ts`, 110+ event types, each marked persisted or ephemeral), and checked on the two local sessions (~9,200 records, Copilot CLI 1.0.75 and a VS Code-hosted session). Result: ~2,500 events, 0 unknown, 0 duplicates, every started call finished, 11 turns opened and closed.
+- A Copilot "turn" is one model call (504 of them for 9 prompts in one session). Our turn runs from the prompt to the first model call that requests no tools — the only persisted signal, since `session.idle` is ephemeral. An empty model call followed by `session.error` fails the turn (seen: quota exhausted).
+- **Approvals are observed, and live.** Copilot logs `permission.requested` when it asks and `permission.completed` (with `decisionSource`) when it is decided — 1,083 requests in one session, 3 answered by a human. Routine policy approvals stay hidden. To show a request that is *waiting*, the tailer now asks each parser what is still open once it has caught up with the file (`idle()`): a request open at that moment is shown as pending until its decision arrives — no flicker for the millisecond policy approvals, and no hooks needed. The reducer parks the agent at the Approval Gate and returns it to its work afterwards; a decision no longer ends the call it belongs to.
+- Todos live in a per-session SQL table edited through the `sql` tool; inserts and id-targeted updates/deletes are applied (13 todos tracked in the local session). Commands Copilot stops waiting for (`<command with shellId: N is still running…>`) stay running until a later `read_powershell` or notification reports the exit code — the local session has one finishing after 11 h 54 m.
+- Subagents get their own agent id (the spawning call id), so the reducer now pairs a subagent with its call by id before falling back to order.
+- The real data exposed a classifier gap that affected every assistant on Windows: `& 'C:\…\python3.12.exe' -m pytest` and versioned Pythons were plain commands. Program paths, the PowerShell call operator and `.exe`/`.cmd` suffixes are now normalised — the local Copilot session went from 6 to 68 test runs and 0 to 49 checks.
+- Token usage is shown as unavailable for Copilot (only shutdown totals, repeated across resumes) instead of as zero.
 
 **Phase 5 — Hardening & packaging**
 - Retention + redacted export with preview, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), onboarding, `npx` package, troubleshooting docs, Copilot-in-VS-Code adapter if Phase 0 found a supported surface.
