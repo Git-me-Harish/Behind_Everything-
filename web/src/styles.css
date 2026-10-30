@@ -225,6 +225,7 @@ kbd { font: 600 11px var(--font-mono); padding: 1px 6px; border-radius: 4px; bor
 .session .when { font-size: 11px; color: var(--muted); }
 .assistant-mark { display: inline-grid; place-items: center; flex: none; width: 18px; height: 14px; }
 .assistant-mark .clawd { width: 17px; height: auto; display: block; }
+.assistant-mark .copilot { width: 15px; height: 15px; display: block; }
 .sidebar-foot { padding: 10px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 
 /* ── Main column ───────────────────────────────────────────────────────── */

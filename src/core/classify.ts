@@ -8,8 +8,17 @@ const COMMAND_RULES: Array<[EventKind, RegExp]> = [
   ['dependency.change', /^((npm|pnpm|yarn|bun) (install|i|ci|add|remove|rm|uninstall|update|upgrade|up|rebuild)|pip3? install|poetry (add|install|remove)|uv (add|sync|remove|pip install)|cargo (add|remove)|go (get|mod tidy)|gem install|bundle install|composer (require|install)|dotnet add package)\b/],
 ];
 
-const WRAPPERS = /^(npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|python3? -m|time|sudo|env|command|exec|timeout \S+|do|then|else|!|\{)\s+/;
+const WRAPPERS = /^(npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|(python|py)[\d.]*( -[\d.]+)? -m|time|sudo|env|command|exec|timeout \S+|do|then|else|!|\{)\s+/;
 const ENV_ASSIGN = /^([A-Za-z_][A-Za-z0-9_]*=("[^"]*"|'[^']*'|\S*)\s+)+/;
+
+/** `& 'C:\Python\python3.12.exe' -m pytest` → `python3.12 -m pytest`: the program by name, as the rules expect. */
+function programName(seg: string): string {
+  return seg
+    .replace(/^&\s*/, '')
+    .replace(/^(['"])([^'"]*)\1/, '$2')
+    .replace(/^[^\s]*[\\/](?=[^\s\\/])/, '')
+    .replace(/^(\S+?)\.(exe|cmd|bat)(?=\s|$)/i, '$1');
+}
 
 /** Splits a shell line into the commands actually invoked, ignoring heredoc bodies and env prefixes. */
 export function segments(command: string): string[] {
@@ -17,8 +26,8 @@ export function segments(command: string): string[] {
     .replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2\b/g, '')
     .replace(/<<-?\s*['"]?\w+['"]?[\s\S]*$/, '');
   return withoutHeredocs.split(/&&|\|\||[;|\n()]/).map(s => {
-    let seg = s.trim().replace(ENV_ASSIGN, '');
-    while (WRAPPERS.test(seg)) seg = seg.replace(WRAPPERS, '').replace(ENV_ASSIGN, '');
+    let seg = programName(s.trim().replace(ENV_ASSIGN, ''));
+    while (WRAPPERS.test(seg)) seg = programName(seg.replace(WRAPPERS, '').replace(ENV_ASSIGN, ''));
     return seg;
   }).filter(Boolean);
 }

@@ -101,6 +101,8 @@ function ActivityDetail({ a, view }: { a: Activity; view: SessionState }) {
             {typeof r.payload?.source === 'string' && <><dt>Decided by</dt><dd className="mono">{r.payload.source}</dd></>}
             {typeof r.payload?.reason === 'string' && <><dt>Reason</dt><dd className="mono">{r.payload.reason}</dd></>}
             {typeof r.payload?.category === 'string' && <><dt>Category</dt><dd className="mono">{r.payload.category}</dd></>}
+            {typeof r.payload?.intention === 'string' && <><dt>Asked to</dt><dd>{r.payload.intention}</dd></>}
+            {typeof r.payload?.feedback === 'string' && <><dt>Your note</dt><dd>{r.payload.feedback}</dd></>}
           </dl>
         </Section>
       ))}

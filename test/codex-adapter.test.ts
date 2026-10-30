@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { commandText, createCodexParser, innerCalls, parsePatch } from '../src/adapters/codex/parse.js';
+import { commandText, createCodexParser, innerCalls } from '../src/adapters/codex/parse.js';
+import { parsePatch } from '../src/adapters/shared.js';
 import { CanonicalEvent, type CanonicalEvent as Event } from '../src/core/schema.js';
 import { reduce } from '../src/core/state.js';
 import { codexSession, CODEX_SESSION, RolloutBuilder } from './fixtures/codex.js';

@@ -50,15 +50,17 @@ export function SessionHeader({ view }: { view: SessionState }) {
         <Stat value={view.turn.index} label="Turns" />
         <Stat value={changed} label="Files changed" />
         <Stat value={`${view.tests.passed}/${view.tests.runs}`} label="Tests passed" tone={view.tests.last === 'failed' ? 'error' : undefined} />
-        <Stat value={compact(view.tokens.output)} label="Output tokens" />
+        {assistantMeta(session.assistant).tokens
+          ? <Stat value={compact(view.tokens.output)} label="Output tokens" />
+          : <Stat value="—" label="Output tokens" hint={`${assistantMeta(session.assistant).name} does not log token usage per call`} />}
       </div>
     </section>
   );
 }
 
-function Stat({ value, label, tone }: { value: number | string; label: string; tone?: 'error' }) {
+function Stat({ value, label, tone, hint }: { value: number | string; label: string; tone?: 'error'; hint?: string }) {
   return (
-    <div className="stat">
+    <div className="stat" title={hint}>
       <b style={tone ? { color: 'var(--error)' } : undefined}>{value}</b>
       <small>{label}</small>
     </div>
@@ -164,9 +166,10 @@ export function Attention({ view }: { view: SessionState }) {
   const now = useNow(5000);
   const [all, setAll] = useState(false);
   const items = view.attention.filter(a => !a.resolved).slice().reverse();
-  // Long-running commands are judged against the clock, so only while following live.
+  // Long-running commands are judged against the clock, so only while following live — and not while the agent
+  // is waiting for your approval to run them.
   const slow = replaying ? [] : Object.entries(view.commands.running)
-    .filter(([, c]) => now - Date.parse(c.started_at) > LONG_RUNNING_MS)
+    .filter(([, c]) => now - Date.parse(c.started_at) > LONG_RUNNING_MS && view.agents[c.agent_id]?.phase !== 'awaiting_input')
     .map(([id, c]) => ({ id: `slow:${id}`, severity: 'warn' as const, message: `Still running after ${duration(now - Date.parse(c.started_at))}: ${c.summary}`, source_class: 'observed' as const, evidence: [] as string[], ts: c.started_at, call: id }));
   const list = [...slow, ...items];
   if (!list.length) return null;

@@ -34,7 +34,7 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
         {loaded && sessions.length === 0 && (
           <div className="empty">
             <h2>No sessions yet</h2>
-            <p>Start Claude Code or Codex in any project. Its sessions appear here automatically.</p>
+            <p>Start Claude Code, Codex or Copilot CLI in any project. Its sessions appear here automatically.</p>
           </div>
         )}
         {shown.map(s => {

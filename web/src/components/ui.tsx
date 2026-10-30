@@ -59,12 +59,27 @@ export function ClawdIcon({ color = AGENT_COLORS[0]!, className = 'clawd' }: { c
   );
 }
 
-/** Which assistant a session belongs to, at a glance: Claude's mascot, or Codex's terminal mark. */
+/** Copilot's mark: a pilot's helmet with goggles. */
+export function CopilotIcon({ color }: { color: string }) {
+  return (
+    <svg className="copilot" viewBox="0 0 16 16" aria-hidden>
+      <path d="M2.5 7a5.5 5.5 0 0 1 11 0v3.5A3.5 3.5 0 0 1 10 14H6a3.5 3.5 0 0 1-3.5-3.5Z" fill={color} />
+      <circle cx="5.7" cy="8.2" r="2" fill="#fff" />
+      <circle cx="10.3" cy="8.2" r="2" fill="#fff" />
+      <circle cx="5.7" cy="8.2" r="0.9" fill={color} />
+      <circle cx="10.3" cy="8.2" r="0.9" fill={color} />
+    </svg>
+  );
+}
+
+/** Which assistant a session belongs to, at a glance: Claude's mascot, Codex's terminal mark, Copilot's goggles. */
 export function AssistantMark({ assistant }: { assistant: string }) {
   const meta = assistantMeta(assistant);
   return (
     <span className={`assistant-mark ${assistant}`} title={meta.name} role="img" aria-label={meta.name}>
-      {assistant === 'claude-code' ? <ClawdIcon /> : <SquareTerminal size={13} color={meta.color} aria-hidden />}
+      {assistant === 'claude-code' ? <ClawdIcon />
+        : assistant === 'copilot-cli' ? <CopilotIcon color={meta.color} />
+        : <SquareTerminal size={13} color={meta.color} aria-hidden />}
     </span>
   );
 }

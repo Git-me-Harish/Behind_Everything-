@@ -22,6 +22,14 @@ describe('classifyCommand', () => {
     ['npm view vitest@4 version', 'command.run'],
     ['sed -n 1,60p vitest.config.ts', 'command.run'],
     ['npx prettier --write src', 'command.run'],
+    // Windows: the PowerShell call operator, full interpreter paths, versioned Pythons.
+    ["& 'C:\\Users\\me\\AppData\\Local\\Microsoft\\WindowsApps\\python3.12.exe' -m pytest -q", 'test.run'],
+    ['C:/Python312/python.exe -m pytest tests/test_api.py', 'test.run'],
+    ["$env:DB_URL = 'sqlite:///x.db'; & 'C:\\Py\\python3.12.exe' -m ruff check .", 'build.run'],
+    ['.\\.venv\\Scripts\\pytest.exe -x', 'test.run'],
+    ['py -3.12 -m pip install requests', 'dependency.change'],
+    ['./gradlew test', 'test.run'],
+    ['/usr/bin/env node scripts/x.js', 'command.run'],
   ])('%s → %s', (cmd, kind) => expect(classifyCommand(cmd)).toBe(kind));
 
   it('ignores heredoc bodies but still sees commands after them', () => {

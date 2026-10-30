@@ -1,4 +1,4 @@
-import { ArrowDown, FileCode2, Search, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { ArrowDown, FileCode2, Search, ShieldCheck, ShieldQuestion, ShieldX, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SessionState } from '../../../src/core/state.ts';
 import { isFiltering, type Activity, type Row } from '../lib/activities.ts';
@@ -166,7 +166,8 @@ function ActivityRow({ a, top, selected, view, now, limitSeq }: { a: Activity; t
   const status = activityStatus(a);
   const running = status === 'running' || status === 'pending';
   const sub = a.agent_id !== 'main' ? view.agents[a.agent_id] : undefined;
-  const decision = a.related.find(r => r.kind === 'permission.decision');
+  // The latest word on the call's permission: a request still waiting, or how it was decided.
+  const decision = a.related.filter(r => r.kind === 'permission.decision').at(-1);
   const added = Number(a.result?.payload?.added ?? 0);
   const removed = Number(a.result?.payload?.removed ?? 0);
   const elapsed = running && limitSeq === null ? now - Date.parse(a.ts) : undefined;
@@ -189,9 +190,13 @@ function ActivityRow({ a, top, selected, view, now, limitSeq }: { a: Activity; t
         {a.summary}
       </span>
       <span className="end">
-        {decision && (decision.status === 'failed'
+        {decision && (decision.status === 'pending'
+          ? <ShieldQuestion size={14} color="var(--warn)" aria-label="Waiting for your approval" />
+          : decision.status === 'failed'
           ? <ShieldX size={14} color="var(--error)" aria-label="Blocked" />
-          : <ShieldCheck size={14} color="var(--ok)" aria-label="Approved by you" />)}
+          : decision.status === 'succeeded'
+          ? <ShieldCheck size={14} color="var(--ok)" aria-label={decision.actor === 'user' ? 'Approved by you' : 'Approved automatically'} />
+          : null)}
         {a.related.some(r => r.kind === 'file.edit') && <FileCode2 size={14} aria-label="Changed files" />}
         {a.kind === 'file.edit' && (added || removed) ? <span><span className="plus">+{added}</span> <span className="minus">−{removed}</span></span> : null}
         {a.result?.exit_code ? <span style={{ color: 'var(--error)' }}>exit {a.result.exit_code}</span> : null}
