@@ -110,6 +110,21 @@ const CODEX_CAPABILITIES: Capability[] = [
   { signal: 'A permission prompt still waiting for you', state: 'no', note: 'Needs the hook bridge (planned)' },
 ];
 
+/** What the Copilot CLI log adapter can see — mirrors docs/CAPABILITIES.md. */
+const COPILOT_CAPABILITIES: Capability[] = [
+  { signal: 'Prompts, turns, assistant messages', state: 'yes', note: 'From the session log' },
+  { signal: 'Reasoning', state: 'partial', note: 'That it happened — never its content' },
+  { signal: 'File reads, searches and edits with diffs', state: 'yes', note: 'view, rg, glob, apply_patch, edit, create' },
+  { signal: 'Commands with exit codes and output', state: 'yes', note: 'Including commands Copilot left running in the background' },
+  { signal: 'Tests, checks, dependency changes', state: 'yes', note: 'Classified from the command that ran, plus VS Code’s runTests' },
+  { signal: 'Plans and todo lists', state: 'yes', note: 'Copilot’s todo table, followed through its sql tool' },
+  { signal: 'Questions to you, approvals, blocked actions', state: 'yes', note: 'Your decisions; Copilot’s routine policy approvals are not shown' },
+  { signal: 'A permission prompt still waiting for you', state: 'yes', note: 'Live: Copilot logs the request as it asks' },
+  { signal: 'Subagents', state: 'partial', note: 'Verified on synthetic data only so far' },
+  { signal: 'MCP and web calls, compaction, errors', state: 'yes', note: '' },
+  { signal: 'Token usage', state: 'no', note: 'Copilot logs only session totals at shutdown, repeated across resumes' },
+];
+
 export interface AssistantMeta {
   /** Product name, e.g. in "Claude Code 2.1". */
   name: string;
@@ -117,22 +132,30 @@ export interface AssistantMeta {
   agent: string;
   color: string;
   logs: string;
+  /** Whether the logs record token usage per call. */
+  tokens: boolean;
   capabilities: Capability[];
 }
 
 export const ASSISTANTS: Record<string, AssistantMeta> = {
-  'claude-code': { name: 'Claude Code', agent: 'Claude', color: '#d97757', logs: 'Claude Code transcripts', capabilities: CLAUDE_CAPABILITIES },
-  codex: { name: 'Codex', agent: 'Codex', color: '#10a37f', logs: 'Codex rollout logs', capabilities: CODEX_CAPABILITIES },
+  'claude-code': { name: 'Claude Code', agent: 'Claude', color: '#d97757', logs: 'Claude Code transcripts', tokens: true, capabilities: CLAUDE_CAPABILITIES },
+  codex: { name: 'Codex', agent: 'Codex', color: '#10a37f', logs: 'Codex rollout logs', tokens: true, capabilities: CODEX_CAPABILITIES },
+  'copilot-cli': { name: 'Copilot CLI', agent: 'Copilot', color: '#8b5cf6', logs: 'Copilot session logs', tokens: false, capabilities: COPILOT_CAPABILITIES },
 };
 
 export const assistantMeta = (assistant?: string): AssistantMeta => ASSISTANTS[assistant ?? ''] ?? ASSISTANTS['claude-code']!;
 
 export const AGENT_COLORS = ['#d97757', '#3b82c4', '#8b5cf6', '#16a34a', '#db2777', '#0891b2', '#ca8a04'];
 
-/** Stable colour per agent: the main agent wears its assistant's colour (Claude clay, Codex green); subagents cycle through the palette by first appearance. */
+/**
+ * Stable colour per agent: the main agent wears its assistant's colour (Claude clay, Codex green, Copilot violet);
+ * subagents cycle through the rest of the palette by first appearance, never in the main agent's colour.
+ */
 export function agentColor(agents: Record<string, AgentState>, id: string, assistant?: string): string {
-  if (id === 'main') return assistantMeta(assistant).color;
+  const main = assistantMeta(assistant).color;
+  if (id === 'main') return main;
+  const palette = AGENT_COLORS.slice(1).filter(c => c !== main);
   const subs = Object.keys(agents).filter(a => a !== 'main');
   const i = subs.indexOf(id);
-  return AGENT_COLORS[1 + ((i < 0 ? subs.length : i) % (AGENT_COLORS.length - 1))]!;
+  return palette[(i < 0 ? subs.length : i) % palette.length]!;
 }

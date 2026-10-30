@@ -24,7 +24,7 @@ const zone = (name: string) => page.getByRole('button', { name: new RegExp(`^${n
 
 test('shows the session overview built from the transcript', async () => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('demo');
-  await expect(page.getByRole('navigation', { name: 'Sessions' }).getByRole('button')).toHaveCount(2) // the Claude demo and the Codex one;
+  await expect(page.getByRole('navigation', { name: 'Sessions' }).getByRole('button')).toHaveCount(3) // the Claude demo, the Codex one and the Copilot one;
   await expect(zone('Test & Build Lab')).toContainText('TESTS 1✓ 1✗');
   await expect(zone('Implementation')).toContainText('1 FILE · +3 −2');
   await expect(zone('Repair Bay')).toContainText('~ 1 FIXED');
