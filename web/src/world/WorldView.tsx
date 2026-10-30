@@ -2,9 +2,9 @@ import { CircleHelp, LocateFixed, Maximize2, Minimize2, Minus, Plus, Scan } from
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { SessionState, ZoneId } from '../../../src/core/state.ts';
 import { pickAgent, toggleZone, ZONE_ICON, zoneDot } from '../components/Overview.tsx';
-import { zoneVars } from '../components/ui.tsx';
+import { ClawdIcon, zoneVars } from '../components/ui.tsx';
 import { PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
-import { store, useApp } from '../lib/store.ts';
+import { store, useApp, useAssistant } from '../lib/store.ts';
 import { World, type LabelPos } from './engine.ts';
 import { worldModel, type AgentModel } from './model.ts';
 import { readPalette } from './palette.ts';
@@ -57,7 +57,8 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
   const expanded = useApp(s => s.expanded);
   const selectedZone = useApp(s => (s.selection?.type === 'zone' ? s.selection.id : undefined));
   const filterAgent = useApp(s => s.filter.agent);
-  const model = useMemo(() => worldModel(view), [view]);
+  const assistant = useAssistant();
+  const model = useMemo(() => worldModel(view, assistant), [view, assistant]);
 
   // ── engine lifecycle ──
   useEffect(() => {
@@ -86,7 +87,7 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
     }
     world.current = w;
     // Read-only hooks for the debug overlay and the browser tests.
-    (window as unknown as { __be?: object }).__be = { world: w.stats, room: (z: ZoneId) => w.roomOnScreen(z) };
+    (window as unknown as { __be?: object }).__be = { world: w.stats, room: (z: ZoneId) => w.roomOnScreen(z), agent: (id: string) => w.agentOnScreen(id) };
     // Follow the theme: re-read the CSS tokens whenever <html data-theme> changes.
     const mo = new MutationObserver(() => w.setPalette(readPalette()));
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -222,7 +223,9 @@ function AgentTag({ a, pressed, ref }: { a: AgentModel; pressed: boolean; ref: (
       {a.thinking && <span className="bubble" aria-hidden><i /><i /><i /></span>}
       {a.waiting && <span className="bubble ask" aria-hidden>?</span>}
       <span className="agent-tag">
-        <span className="initial" aria-hidden>{a.initial}</span>
+        {a.avatar === 'clawd' && a.main
+          ? <span className="initial mascot" aria-hidden><ClawdIcon color={a.color} /></span>
+          : <span className="initial" aria-hidden>{a.initial}</span>}
         <span className="name">{a.label}</span>
         <span className="phase">{a.inferred ? '~ ' : ''}{phase}</span>
       </span>
@@ -237,7 +240,7 @@ function Legend({ onClose }: { onClose: () => void }) {
       <header><b>Reading the map</b><button className="link" onClick={onClose}>Close</button></header>
       <ul>
         <li><b>Rooms</b> are the zones of the work. A coloured light on the back wall shows each room’s status; a ripple crosses the floor when something happens there.</li>
-        <li><b>People</b> are Claude (larger, clay) and its subagents. They walk to the room of what they are doing now. Dots above a head: thinking. <b>?</b>: waiting for you.</li>
+        <li><b>Claude</b> is its pixel mascot; its subagents are smaller ones, each in its own colour. They walk to the room of what they are doing now — and type while a tool runs. Dots above a head: thinking. <b>?</b> and a wave: waiting for you.</li>
         <li><b>Props are real counts</b>: books = files read, notes = plan items, lit monitors = files changed, tubes = test and check verdicts, crates = files ready for review, lamps in the Repair Bay = failures and reruns.</li>
         <li><b>Dashed</b> outlines and <b>~</b> mean inferred from a pattern, not read directly. The Approval Gate’s barrier is down while something waits for you.</li>
         <li>Drag to move · Ctrl+scroll or pinch to zoom · click a room or a person for details.</li>

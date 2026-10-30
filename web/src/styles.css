@@ -2,6 +2,8 @@
 :root {
   --font-ui: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* Claude's mascot has dark eyes on clay in both themes. */
+  --clawd-eye: #1d1714;
 
   --bg: #e9eff6;
   --bg-grid: rgba(31, 127, 140, 0.06);
@@ -116,6 +118,16 @@ button { cursor: pointer; }
   height: 100vh;
 }
 .app.no-inspector { grid-template-columns: 272px minmax(0, 1fr) 0; }
+/* The sessions column collapses to nothing; its content keeps its width and is clipped as it slides shut. */
+@media (min-width: 861px) {
+  .app { transition: grid-template-columns 0.22s ease; }
+  .app.side-closed { grid-template-columns: 0 minmax(0, 1fr) 440px; }
+  .app.side-closed.no-inspector { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .sidebar { overflow: hidden; }
+  .sidebar > * { min-width: 240px; }
+  .app.side-closed .sidebar { border-right-width: 0; visibility: hidden; transition: visibility 0s 0.22s; }
+}
+@media (prefers-reduced-motion: reduce) { .app, .sidebar { transition: none !important; } }
 .topbar { grid-area: top; }
 .sidebar { grid-area: side; }
 .main { grid-area: main; }
@@ -124,15 +136,17 @@ button { cursor: pointer; }
 
 @media (max-width: 1280px) {
   .app, .app.no-inspector { grid-template-columns: 240px minmax(0, 1fr) 0; }
+  .app.side-closed, .app.side-closed.no-inspector { grid-template-columns: 0 minmax(0, 1fr) 0; }
   .inspector { position: fixed; right: 12px; top: 64px; bottom: 68px; width: min(440px, calc(100vw - 24px)); z-index: 20; border-radius: var(--radius); box-shadow: var(--shadow-lift); }
 }
 @media (max-width: 860px) {
-  .app, .app.no-inspector { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-areas: 'top top top' 'side main inspector' 'replay replay replay'; }
+  .app, .app.no-inspector, .app.side-closed, .app.side-closed.no-inspector { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-areas: 'top top top' 'side main inspector' 'replay replay replay'; }
   .sidebar { position: fixed; left: 0; top: 52px; bottom: 56px; width: 280px; z-index: 30; transform: translateX(-100%); transition: transform 0.2s; box-shadow: var(--shadow-lift); }
+  .sidebar:not(.open) { visibility: hidden; transition: transform 0.2s, visibility 0s 0.2s; }
   .sidebar.open { transform: none; }
-  .only-narrow { display: inline-flex !important; }
+  .drawer-scrim { position: fixed; inset: 52px 0 56px; z-index: 29; background: rgba(8, 12, 20, 0.32); animation: fade-in 0.2s; }
 }
-.only-narrow { display: none !important; }
+@keyframes fade-in { from { opacity: 0; } }
 
 /* ── Top bar ────────────────────────────────────────────────────────────── */
 .topbar {
@@ -241,6 +255,8 @@ kbd { font: 600 11px var(--font-mono); padding: 1px 6px; border-radius: 4px; bor
 }
 .agent.inferred { border-style: dashed; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; font: 700 12px var(--font-mono); position: relative; }
+.avatar.mascot { background: color-mix(in srgb, currentColor 14%, var(--panel)); }
+.avatar.mascot .clawd { width: 78%; height: auto; }
 .avatar.busy::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid currentColor; opacity: 0.35; animation: ring 1.4s ease-out infinite; }
 @keyframes ring { from { transform: scale(0.9); opacity: 0.5; } to { transform: scale(1.25); opacity: 0; } }
 .agent .who { font-weight: 600; }

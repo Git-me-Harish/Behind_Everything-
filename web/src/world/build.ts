@@ -6,6 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { ZONES, type ZoneId } from '../../../src/core/state.ts';
 import { DOOR_W, FRONT_WALL_H, ROOM, roomCenter, SLAB, SPAN, WALL_H } from './layout.ts';
 import { CAPACITY } from './model.ts';
+import { CLAWD_COLS, CLAWD_ROWS, clawdRuns, PIXEL, type ClawdPart } from './clawd.ts';
 import type { Palette } from './palette.ts';
 
 /**
@@ -264,4 +265,43 @@ export function personGeometry(body: Color, p: Palette): { torso: BufferGeometry
   const leg = new BoxGeometry(0.13, 0.38, 0.15).translate(0, -0.19, 0);
   const shadow = new CircleGeometry(0.42, 20).rotateX(-Math.PI / 2);
   return { torso: k.geometry(), leg, shadow };
+}
+
+/** Pixel width of the voxel mascot; a pixel is 9/4 as tall (see `PIXEL`). About as tall as a person's shoulders. */
+const VOXEL = 0.095;
+
+export interface ClawdGeometry extends Record<ClawdPart, BufferGeometry> {
+  shadow: BufferGeometry;
+  height: number;
+  /** The eyes are centred on their own origin (so they blink in place); this lifts them back into the face. */
+  eyeY: number;
+}
+
+/**
+ * Claude's mascot as voxels: the pixel drawing extruded into a block, facing +z. Each part is its own geometry
+ * so the engine can lift legs, wave arms and blink. Two legs stand at the front and two at the back, stepping
+ * in turn: from the front it is the 2D drawing, in 3D it walks like a little crab.
+ */
+export function clawdGeometry(): ClawdGeometry {
+  const cw = VOXEL, ch = (VOXEL * PIXEL.h) / PIXEL.w, depth = 7 * cw;
+  const parts = { body: [], eye: [], armL: [], armR: [], legFront: [], legBack: [] } as Record<ClawdPart, BufferGeometry[]>;
+  for (const r of clawdRuns()) {
+    const x = (r.col + r.len / 2 - CLAWD_COLS / 2) * cw;
+    const y = (CLAWD_ROWS - 1 - r.row + 0.5) * ch;
+    const [d, z] = r.part === 'eye' ? [0.03, depth / 2 + 0.012]
+      : r.part === 'armL' || r.part === 'armR' ? [3 * cw, 0]
+      : r.part === 'legFront' ? [1.6 * cw, depth / 2 - 1.2 * cw]
+      : r.part === 'legBack' ? [1.6 * cw, -depth / 2 + 1.2 * cw]
+      : [depth, 0];
+    parts[r.part].push(new BoxGeometry(r.len * cw, ch, d).translate(x, y, z));
+  }
+  const merged = Object.fromEntries(Object.entries(parts).map(([k, gs]) => {
+    const g = mergeGeometries(gs)!;
+    for (const part of gs) part.dispose();
+    return [k, g];
+  })) as Record<ClawdPart, BufferGeometry>;
+  const eyeY = (CLAWD_ROWS - 1 - clawdRuns().find(r => r.part === 'eye')!.row + 0.5) * ch;
+  merged.eye.translate(0, -eyeY, 0);
+  const shadow = new CircleGeometry(0.5, 24).rotateX(-Math.PI / 2).scale(CLAWD_COLS * cw * 1.05, 1, depth * 1.6);
+  return { ...merged, shadow, height: CLAWD_ROWS * ch, eyeY };
 }

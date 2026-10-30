@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createClaudeParser } from '../../src/adapters/claude-code/parse.js';
 import { ZONES, reduce, type ZoneId } from '../../src/core/state.js';
+import { Box3 } from 'three';
+import { clawdGeometry } from '../../web/src/world/build.js';
+import { CLAWD, CLAWD_COLS, CLAWD_ROWS, clawdRuns } from '../../web/src/world/clawd.js';
 import { BACK, bounds, clampView, fit, mix, onScreen, panBy, unproject, zoomAround, type V3 } from '../../web/src/world/camera.js';
 import { CORRIDOR, door, entry, footprint, GRAPH, LANES, ROOM, roomCenter, shortest, SPAN, stationPos, STATIONS, type P } from '../../web/src/world/layout.js';
 import { CAPACITY, FINISHED_LINGER_MS, MAX_AGENTS, worldModel } from '../../web/src/world/model.js';
@@ -207,7 +210,8 @@ describe('world model', () => {
   it('puts each agent in its zone with its own station', () => {
     const m = worldModel(after('t-edit1', 'started'));
     expect(m.agents).toHaveLength(1);
-    expect(m.agents[0]).toMatchObject({ id: 'main', zone: 'implementation', slot: 0, busy: true, main: true, initial: 'C' });
+    expect(m.agents[0]).toMatchObject({ id: 'main', zone: 'implementation', slot: 0, busy: true, main: true, initial: 'C', avatar: 'clawd' });
+    expect(worldModel(final, 'codex').agents[0]!.avatar).toBe('person');
     expect(m.agents[0]!.summary).toContain('date.ts');
   });
 
@@ -225,5 +229,45 @@ describe('world model', () => {
     expect(m.hiddenAgents).toBe(1 + 15 - MAX_AGENTS); // main + 15 helpers, minus those shown; the long-finished one is gone
     const slots = m.agents.filter(a => a.zone === 'explorer').map(a => a.slot);
     expect(new Set(slots).size).toBe(slots.length);
+  });
+});
+
+describe('Claude mascot', () => {
+  it('is the pixel drawing: 17×5, mirror-symmetric, with two eyes, two arms and four legs', () => {
+    expect(CLAWD).toHaveLength(CLAWD_ROWS);
+    for (const line of CLAWD) {
+      expect(line).toHaveLength(CLAWD_COLS);
+      // Mirror image, with front/back legs swapped (they alternate along the row).
+      const mirrored = [...line].reverse().join('').replace(/[fb]/g, c => (c === 'f' ? 'b' : 'f'));
+      expect(mirrored.replace(/[fb]/g, 'L')).toBe(line.replace(/[fb]/g, 'L'));
+    }
+    const runs = clawdRuns();
+    expect(runs.filter(r => r.part === 'eye')).toHaveLength(2);
+    expect(runs.filter(r => r.part === 'armL')).toHaveLength(1);
+    expect(runs.filter(r => r.part === 'armR')).toHaveLength(1);
+    expect(runs.filter(r => r.part === 'legFront')).toHaveLength(2);
+    expect(runs.filter(r => r.part === 'legBack')).toHaveLength(2);
+  });
+
+  it('covers every pixel exactly once, with the eyes drawn on a solid face', () => {
+    const covered = CLAWD.map(l => [...l].map(() => 0));
+    for (const r of clawdRuns()) if (r.part !== 'eye') for (let c = r.col; c < r.col + r.len; c++) covered[r.row]![c]!++;
+    CLAWD.forEach((line, row) => [...line].forEach((ch, col) => expect(covered[row]![col], `${row},${col}`).toBe(ch === '.' ? 0 : 1)));
+  });
+
+  it('builds a voxel figure: standing on the floor, centred, eyes on the front face, legs at front and back', () => {
+    const g = clawdGeometry();
+    const box = (geo: typeof g.body) => new Box3().setFromBufferAttribute(geo.getAttribute('position') as never);
+    const body = box(g.body), front = box(g.legFront), back = box(g.legBack), eye = box(g.eye);
+    expect(front.min.y).toBeCloseTo(0);
+    expect(back.min.y).toBeCloseTo(0);
+    expect(body.max.y).toBeCloseTo(g.height);
+    expect(body.min.x + body.max.x).toBeCloseTo(0);
+    expect(eye.max.z).toBeGreaterThan(body.max.z); // stand out of the face…
+    expect(eye.min.z).toBeGreaterThan(body.max.z - 0.01); // …and sit on it
+    expect(eye.max.y + g.eyeY).toBeLessThan(body.max.y);
+    expect(front.min.z).toBeGreaterThan(0);
+    expect(back.max.z).toBeLessThan(0);
+    for (const geo of Object.values(g)) if (typeof geo === 'object') geo.dispose();
   });
 });

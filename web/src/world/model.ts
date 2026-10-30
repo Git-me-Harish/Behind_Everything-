@@ -36,6 +36,8 @@ export interface AgentModel {
   initial: string;
   color: string;
   main: boolean;
+  /** Claude Code's agents are its pixel mascot (subagents smaller, in their own colour); others are people. */
+  avatar: 'clawd' | 'person';
   zone: ZoneId;
   /** Index among the agents in the same room → which station it stands at. */
   slot: number;
@@ -55,7 +57,7 @@ export interface WorldModel { rooms: Record<ZoneId, RoomModel>; agents: AgentMod
 export const FINISHED_LINGER_MS = 20_000;
 export const MAX_AGENTS = 12;
 
-export function worldModel(view: SessionState): WorldModel {
+export function worldModel(view: SessionState, assistant = 'claude-code'): WorldModel {
   const rooms = Object.fromEntries(ZONES.map(id => [id, room(view, id)])) as Record<ZoneId, RoomModel>;
   const { shown, hidden } = visibleAgents(view);
   const perRoom = new Map<ZoneId, number>();
@@ -64,7 +66,8 @@ export function worldModel(view: SessionState): WorldModel {
     perRoom.set(a.zone, slot + 1);
     return {
       id: a.id, label: a.label, initial: a.id === 'main' ? 'C' : (a.label.trim()[0] ?? 'S').toUpperCase(),
-      color: agentColor(view.agents, a.id), main: a.id === 'main', zone: a.zone, slot, phase: a.phase,
+      color: agentColor(view.agents, a.id), main: a.id === 'main',
+      avatar: assistant === 'claude-code' ? 'clawd' : 'person', zone: a.zone, slot, phase: a.phase,
       inferred: a.phase_source === 'inferred', busy: !!a.activity && !a.finished,
       thinking: a.phase === 'thinking' && !a.finished, waiting: a.phase === 'awaiting_input', finished: a.finished,
       summary: a.activity?.summary, call_id: a.activity?.call_id,
