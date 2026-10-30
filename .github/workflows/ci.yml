@@ -50,9 +50,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
-      - run: pnpm test:e2e
+      # Headless Firefox on Linux has no GL at all, so it would (correctly) fall back to the 2D board. Run it
+      # headed on a virtual display with Mesa's software OpenGL so the 3D map itself is tested.
+      - if: matrix.browser == 'firefox'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libegl1
+      - run: ${{ matrix.browser == 'firefox' && 'xvfb-run -a ' || '' }}pnpm test:e2e
         env:
           PW_BROWSER: ${{ matrix.browser }}
+          PW_HEADED: ${{ matrix.browser == 'firefox' && '1' || '' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
