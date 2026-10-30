@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world — with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.3 · 2026-10-29 — Phases 0–2 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 3, the 3D world
+Status: v0.4 · 2026-10-30 — Phases 0–3 delivered for Claude Code (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 4, Codex + Copilot adapters
 
 ---
 
@@ -223,6 +223,19 @@ docs/            PLAN, CAPABILITIES
 **Phase 3 — The world**
 - Isometric scene, 9 zones, pills bound to `SessionState`, agent avatars + pathing, subagents, click-to-focus camera, replay through the world, reduced-motion mode.
 - ✅ Exit: 60 fps on integrated GPU with 3 concurrent sessions; event-to-pixel < 250 ms.
+
+**Phase 3 — delivered notes**
+- **Renderer:** plain three.js (no React Three Fiber), lazy-loaded as its own chunk (~150 kB gzip) so the rest of the screen never waits for it. Orthographic isometric camera; render-on-demand (0 fps when nothing moves; gentle idle motion capped at 30 fps; paused when the map is off-screen or the tab is hidden).
+- **Pure core, thin renderer:** `web/src/world/` splits into pure, unit-tested modules — `layout` (3×3 building, corridor graph, Dijkstra routes, stations), `model` (room props and agents derived from `SessionState` only), `motion` (walking, re-routing mid-walk without teleporting, snapping), `camera` (fit, pan, pinch, zoom-around-cursor, clamping) — and `build`/`engine`, which only draw. The whole building is one merged draw call; data-bound props are two instanced meshes.
+- **Props are real counts:** books = files read, sticky notes = plan items (by status), lit monitors = files changed, server LEDs = commands (running / failed / ok), test tubes = verdict share (newest first), decision lamps = approvals / blocks / waiting, crates = files for review, Repair Bay lamps = failures and reruns. The Approval Gate barrier is down while something waits for the user; the Repair Bay beacon turns while a failure is unfixed. Status bars on every back wall; a ripple crosses a room's floor when an event lands in it.
+- **Where agents are is now part of the deterministic state** (`AgentState.zone`): thinking happens wherever the agent already is; only a new prompt calls it back to Mission Control. This removed the agent bouncing between rooms on every reasoning block, and the 2D board uses the same field.
+- **Labels are DOM, not WebGL:** room pills/badges and agent tags are real buttons positioned each frame — sharp at any DPI, keyboard-focusable, screen-reader named, and the existing tests run against the 3D map unchanged. Four label densities (tiny icon-only on phones → full detail up close).
+- **Input:** one pointer-event path for mouse, pen and touch; drag to pan (a drag never selects), Ctrl/⌘+wheel or trackpad pinch to zoom around the cursor, two-finger pinch on touch, arrows / + / − / 0 on the focused map. Embedded in the page, a plain wheel or one-finger drag scrolls the page and a hint explains how to move the map; full-screen mode takes every gesture. Click a room (or its label) for its details; click a person for what they are doing now. Follow-Claude camera.
+- **Resilience:** WebGL 2 detected up front; no WebGL, a failed chunk, a render crash or a context that does not come back within 4 s all fall back to the 2D board with the reason shown. Reduced motion: agents and camera jump, no ripples, no idle motion. Themes re-read from the same CSS tokens.
+- **Responsive app-wide:** phone layout for the top bar, stats, timeline rows, replay bar and details panel; tested with no sideways scrolling at 360×740, 390×844, 844×390, 768×1024, 1024×768, 1366×768 and 1920×1080, with touch where applicable. Browser tests run on Chromium, Firefox and WebKit in CI.
+- **Bugs found while building it:** re-inserting into a `Map` while iterating it froze the page on theme change with an agent on screen — fixed and covered by a browser test.
+- **Measured** (Windows 11, Intel HD Graphics 400 — a low-end integrated GPU — Edge, continuous panning): **60.3 fps at 1440×900, 57.8 fps at 2560×1440**, 11 draw calls, ~7.4k triangles. Idle: 0 fps; ambient motion: 30 fps. Event-to-pixel (WebSocket message → frame on screen): asserted < 250 ms in the browser tests. Only the selected session is drawn, so the cost does not grow with the number of sessions the collector is tailing (measured with one live session).
+- Found by measuring: the 30 fps idle-motion cap was also throttling frames requested by input, so dragging ran at 22 fps whenever an agent was busy; input and data changes now always draw on the next frame.
 
 **Phase 4 — Codex + Copilot CLI adapters, hook bridge**
 - Adapters from fixtures; `hooks install` for all three (writes to user config with backup + clean uninstall); Approval Gate live for all.

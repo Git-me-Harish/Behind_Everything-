@@ -25,11 +25,17 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  // Headless Firefox and WebKit draw WebGL in software and are several times slower than Chromium.
+  ...(process.env.PW_BROWSER && process.env.PW_BROWSER !== 'chromium' ? { timeout: 240_000, expect: { timeout: 20_000 } } : {}),
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    // One engine per run (the live test appends to the shared transcript): PW_BROWSER=firefox|webkit.
+    browserName: (process.env.PW_BROWSER as 'chromium' | 'firefox' | 'webkit' | undefined) ?? 'chromium',
     // Locally, an installed Edge/Chrome avoids downloading a browser: PW_CHANNEL=msedge pnpm test:e2e
     channel: process.env.PW_CHANNEL || undefined,
+    // Headless Chromium on machines without a GPU needs SwiftShader allowed explicitly for WebGL.
+    launchOptions: process.env.PW_BROWSER && process.env.PW_BROWSER !== 'chromium' ? {} : { args: ['--enable-unsafe-swiftshader'] },
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
   },

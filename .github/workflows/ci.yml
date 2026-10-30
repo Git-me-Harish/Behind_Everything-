@@ -33,8 +33,12 @@ jobs:
       - run: pnpm build
 
   e2e:
-    name: e2e (ubuntu, chromium)
+    name: e2e (ubuntu, ${{ matrix.browser }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -45,11 +49,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - run: pnpm test:e2e
+        env:
+          PW_BROWSER: ${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: test-results/
           retention-days: 7
