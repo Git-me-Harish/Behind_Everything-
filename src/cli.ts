@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DEFAULT_PORT, startCollector } from './collector/index.js';
 import type { StoredEvent } from './collector/store.js';
+import { runHooks } from './hooks/cli.js';
 
 const HELP = `behind-everything — see what your AI coding agent is actually doing
 
 Usage: behind-everything [options]
+       behind-everything hooks <install | uninstall | status>   (see: hooks --help)
 
   -p, --port <n>       Port on 127.0.0.1 (default ${DEFAULT_PORT})
       --since <days>   Load sessions active in the last N days (default 7)
@@ -19,8 +21,11 @@ Usage: behind-everything [options]
   -h, --help           Show this help
 `;
 
-const { values } = parseArgs({
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
   options: {
+    claude: { type: 'boolean' },
+    codex: { type: 'boolean' },
     port: { type: 'string', short: 'p' },
     since: { type: 'string' },
     retention: { type: 'string' },
@@ -29,6 +34,11 @@ const { values } = parseArgs({
     help: { type: 'boolean', short: 'h' },
   },
 });
+
+if (positionals[0] === 'hooks') {
+  const action = values.help ? undefined : positionals[1];
+  process.exit(await runHooks(action, { claude: values.claude, codex: values.codex, port: values.port ? Number(values.port) : DEFAULT_PORT }, s => process.stdout.write(s)));
+}
 
 if (values.help) {
   process.stdout.write(HELP);
@@ -76,7 +86,7 @@ try {
   });
   const sessions = c.store.sessions();
   process.stdout.write(`${paint(1, 'Behind Everything')} collector on ${paint(36, c.url)}\n`);
-  process.stdout.write(`Watching Claude Code transcripts · ${sessions.length} session(s) loaded${c.pruned ? ` · pruned ${c.pruned} old events` : ''}\n`);
+  process.stdout.write(`Watching Claude Code, Codex and Copilot logs · ${sessions.length} session(s) loaded${c.pruned ? ` · pruned ${c.pruned} old events` : ''}\n`);
   if (webRoot) {
     process.stdout.write(`Open ${paint(36, c.url)} to see it live\n`);
     if (!values['no-open'] && !process.env.BE_DEV_ORIGIN) openBrowser(c.url);

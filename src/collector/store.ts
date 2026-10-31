@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { CanonicalEvent, SessionInfo } from '../core/schema.js';
+import type { WaitingItem } from '../core/waiting.js';
 import { liteEvent } from './lite.js';
 
 export interface StoredEvent extends CanonicalEvent { seq: number }
-export interface SessionRow extends SessionInfo { event_count: number }
+/** A session as listed; `waiting` is filled in by the collector, not stored. */
+export interface SessionRow extends SessionInfo { event_count: number; waiting?: WaitingItem[] }
 
 /** Append-only local event store. Events are already redacted when they arrive here. */
 export class Store {

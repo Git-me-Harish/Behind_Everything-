@@ -10,7 +10,7 @@ import { startCollector } from '../src/collector/index.js';
 import { JsonlTailer } from '../src/collector/tailer.js';
 import type { CanonicalEvent } from '../src/core/schema.js';
 import { createCopilotParser } from '../src/adapters/copilot-cli/parse.js';
-import { demoSession, SESSION } from './fixtures/claude.js';
+import { demoSession, SESSION, TranscriptBuilder } from './fixtures/claude.js';
 import { CopilotLogBuilder } from './fixtures/copilot.js';
 
 let dir: string;
@@ -163,4 +163,51 @@ describe('collector detail endpoint', () => {
       await c.close();
     }
   });
+});
+
+function post(port: number, p: string, body: string, headers: Record<string, string> = { 'content-type': 'application/json' }): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers, agent: false }, res => { res.resume(); res.on('end', () => resolve(res.statusCode ?? 0)); });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+describe('collector hook bridge', () => {
+  it('shows a hooked approval prompt as waiting, on the call and in the session list, until the call runs', async () => {
+    const root = path.join(dir, 'projects');
+    const file = path.join(root, 'C--work-demo', `${SESSION}.jsonl`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const log = new TranscriptBuilder().userPrompt('Clean up').toolUse('t-rm', 'Bash', { command: 'rm -rf build', description: 'Remove the build folder' });
+    fs.writeFileSync(file, log.jsonl());
+    const hookConfig = { 'claude-code': path.join(dir, 'claude-settings.json'), codex: path.join(dir, 'codex-hooks.json') };
+    const port = 48100 + Math.floor(Math.random() * 90);
+    const c = await startCollector({ port, claudeRoot: root, codexRoot: path.join(root, 'no-codex'), copilotRoot: path.join(root, 'no-copilot'), dbPath: path.join(dir, 'db.sqlite'), hookConfig });
+    try {
+      await until(() => c.store.sessions().length === 1);
+      const body = JSON.stringify({ session_id: SESSION, cwd: 'C:\work\demo', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build', description: 'Remove the build folder' } });
+      expect(await post(port, '/api/hooks/claude-code', body)).toBe(204);
+      const session = async () => (await get(port, '/api/sessions')).body[0];
+      expect((await session()).waiting).toEqual([expect.objectContaining({ kind: 'approval', call_id: 't-rm', summary: 'Waiting for approval: Remove the build folder' })]);
+      const events = (await get(port, `/api/sessions/${encodeURIComponent(`claude-code:${SESSION}`)}/events`)).body;
+      expect(events.at(-1)).toMatchObject({ kind: 'permission.decision', status: 'pending', adapter: { capture: 'hook' } });
+
+      const health = (await get(port, '/api/health')).body;
+      expect(health.sources.find((s: any) => s.assistant === 'claude-code').hooks).toMatchObject({ installed: false, events: 1, matched: 1 });
+      expect(health.sources.find((s: any) => s.assistant === 'copilot-cli').hooks).toBeUndefined();
+
+      fs.appendFileSync(file, log.toolResult('t-rm', 'removed').jsonl().split('\n').filter(Boolean).at(-1) + '\n');
+      await until(() => c.store.sessions()[0]!.event_count > events.length);
+      expect((await session()).waiting).toEqual([]);
+
+      // Only JSON objects from this machine, for assistants that have a bridge.
+      expect(await post(port, '/api/hooks/claude-code', body, { 'content-type': 'application/json', origin: 'https://evil.example' })).toBe(403);
+      expect(await post(port, '/api/hooks/claude-code', body, { 'content-type': 'text/plain' })).toBe(415);
+      expect(await post(port, '/api/hooks/claude-code', '[1]')).toBe(400);
+      expect(await post(port, '/api/hooks/copilot-cli', body)).toBe(404);
+      expect(await post(port, '/api/hooks/claude-code', JSON.stringify({ pad: 'x'.repeat(300_000) }))).toBe(413);
+    } finally {
+      await c.close();
+    }
+  }, 20_000);
 });

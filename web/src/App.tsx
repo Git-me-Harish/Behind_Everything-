@@ -6,6 +6,7 @@ import { ReplayBar } from './components/ReplayBar.tsx';
 import { SessionList } from './components/SessionList.tsx';
 import { FilterBar, Timeline } from './components/Timeline.tsx';
 import { TopBar } from './components/TopBar.tsx';
+import { useWaitingAlerts } from './lib/alerts.ts';
 import { Workspace } from './components/Workspace.tsx';
 import { asOf, buildRows, type Row } from './lib/activities.ts';
 import { clock } from './lib/format.ts';
@@ -29,6 +30,7 @@ export function App() {
   const view = useView();
 
   useEffect(() => { void store.start(); }, []);
+  useWaitingAlerts();
 
   // While replaying, everything reflects the session as it was at the cursor.
   const limitSeq = cursor === null ? null : cursor === 0 ? 0 : events[cursor - 1]?.seq ?? null;

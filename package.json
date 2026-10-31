@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p test/web && tsc --noEmit -p e2e",
     "test": "vitest run",
     "test:local": "BE_LOCAL_TRANSCRIPTS=1 vitest run test/local-transcripts.test.ts",
+    "hooks": "tsx src/cli.ts hooks",
     "test:e2e": "pnpm build:web && playwright test"
   },
   "dependencies": {

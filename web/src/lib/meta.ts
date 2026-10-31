@@ -78,7 +78,10 @@ export const SOURCE_INFO: Record<SourceClass, { label: string; help: string }> =
   unavailable: { label: 'Unavailable', help: 'The assistant does not expose this, or capture is turned off. Not seeing it does not mean it did not happen.' },
 };
 
-export interface Capability { signal: string; state: 'yes' | 'partial' | 'no'; note: string }
+/** `hook`: captured once the opt-in hook bridge is installed for this assistant. */
+export interface Capability { signal: string; state: 'yes' | 'partial' | 'no'; note: string; hook?: boolean }
+
+const HOOK_NOTE = 'Not in the log until answered. Opt in to the hook bridge: pnpm hooks install';
 
 /** What the Claude Code log adapter can see — mirrors docs/CAPABILITIES.md. */
 const CLAUDE_CAPABILITIES: Capability[] = [
@@ -88,11 +91,11 @@ const CLAUDE_CAPABILITIES: Capability[] = [
   { signal: 'Commands with exit codes and output', state: 'yes', note: 'Bash / PowerShell' },
   { signal: 'Tests, checks, dependency changes', state: 'yes', note: 'Classified from the command that ran' },
   { signal: 'Plans and todo lists', state: 'yes', note: 'TodoWrite, tasks, plan mode' },
-  { signal: 'Questions to you, approvals, blocked actions', state: 'yes', note: 'After they are answered' },
+  { signal: 'Questions to you, approvals, blocked actions', state: 'yes', note: 'Questions as they are asked; approvals once answered' },
   { signal: 'Subagents', state: 'partial', note: 'Verified on synthetic data only so far' },
   { signal: 'Token usage, API errors, compaction', state: 'yes', note: '' },
-  { signal: 'A permission prompt still waiting for you', state: 'no', note: 'Needs the hook bridge (planned)' },
-  { signal: 'Session closed', state: 'no', note: 'Needs the hook bridge (planned)' },
+  { signal: 'A permission prompt still waiting for you', state: 'no', note: HOOK_NOTE, hook: true },
+  { signal: 'Session closed', state: 'no', note: 'Not recorded in the transcript' },
 ];
 
 /** What the Codex log adapter can see — mirrors docs/CAPABILITIES.md. */
@@ -107,7 +110,7 @@ const CODEX_CAPABILITIES: Capability[] = [
   { signal: 'Approvals', state: 'partial', note: 'Commands that asked to leave the sandbox: approval inferred when they ran, refusals observed' },
   { signal: 'Subagents', state: 'no', note: 'Not seen in Codex logs yet' },
   { signal: 'Token usage, compaction', state: 'yes', note: '' },
-  { signal: 'A permission prompt still waiting for you', state: 'no', note: 'Needs the hook bridge (planned)' },
+  { signal: 'A permission prompt still waiting for you', state: 'no', note: HOOK_NOTE, hook: true },
 ];
 
 /** What the Copilot CLI log adapter can see — mirrors docs/CAPABILITIES.md. */

@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import type { SessionState } from '../../../src/core/state.ts';
 import { assistantMeta, SOURCE_INFO } from '../lib/meta.ts';
 import { store, useApp } from '../lib/store.ts';
+import type { HookHealth } from '../lib/types.ts';
 import { SourceTag } from './ui.tsx';
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -32,6 +33,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
   const adapter = events.find(e => e.adapter)?.adapter;
   const meta = assistantMeta(assistant);
   const source = health?.sources.find(x => x.assistant === assistant);
+  const hooks = source?.hooks;
   return (
     <Dialog title="Coverage — what we can and cannot see" onClose={() => store.toggleCoverage(false)}>
       <p style={{ margin: 0 }}>
@@ -44,7 +46,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
       </div>
       <table className="cap-table">
         <tbody>
-          {meta.capabilities.map(c => (
+          {meta.capabilities.map(c => (c.hook && hooks?.installed ? { ...c, state: 'yes' as const, note: 'Live, through the hook bridge' } : c)).map(c => (
             <tr key={c.signal}>
               <td style={{ width: 22 }}>{c.state === 'yes' ? <Check size={15} color="var(--ok)" aria-label="Captured" /> : c.state === 'partial' ? <Minus size={15} color="var(--warn)" aria-label="Partly captured" /> : <X size={15} color="var(--error)" aria-label="Not captured" />}</td>
               <td>{c.signal}</td>
@@ -56,11 +58,20 @@ export function CoverageDialog({ view }: { view: SessionState }) {
       <dl className="kv">
         <dt>Capture</dt><dd>{meta.logs} · read-only · no configuration</dd>
         {source && <><dt>Watching</dt><dd className="mono" style={{ fontSize: 11.5 }}>{source.root} ({source.files} files)</dd></>}
+        {hooks && <><dt>Hook bridge</dt><dd>{hookLine(hooks)}</dd></>}
         {adapter && <><dt>Adapter</dt><dd className="mono">{adapter.name} v{adapter.version}</dd></>}
         <dt>This session</dt><dd>{view.event_count.toLocaleString()} events · {view.unknown_count} unrecognised · {redacted} values redacted</dd>
       </dl>
     </Dialog>
   );
+}
+
+/** Installed or not, and whether it is actually delivering — the honest state, with the next step when there is one. */
+function hookLine(h: HookHealth): string {
+  if (!h.installed) return 'Not installed — run `pnpm hooks install` to see approval prompts while they wait';
+  if (!h.port_matches) return 'Installed for another port — run `pnpm hooks install` again';
+  if (!h.events) return 'Installed · no prompts since Behind Everything started';
+  return `Installed · ${h.events} prompt${h.events === 1 ? '' : 's'} received, ${h.matched} shown${h.unmatched ? `, ${h.unmatched} not matched to a call` : ''}`;
 }
 
 const SHORTCUTS: Array<[string, string]> = [
