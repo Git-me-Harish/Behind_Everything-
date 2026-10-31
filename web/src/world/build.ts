@@ -7,6 +7,7 @@ import { ZONES, type ZoneId } from '../../../src/core/state.ts';
 import { DOOR_W, FRONT_WALL_H, ROOM, roomCenter, SLAB, SPAN, WALL_H } from './layout.ts';
 import { CAPACITY } from './model.ts';
 import { CLAWD_COLS, CLAWD_ROWS, clawdRuns, PIXEL, type ClawdPart } from './clawd.ts';
+import { cells, type Cell, type MascotPart } from './mascots.ts';
 import type { Palette } from './palette.ts';
 
 /**
@@ -304,4 +305,66 @@ export function clawdGeometry(): ClawdGeometry {
   merged.eye.translate(0, -eyeY, 0);
   const shadow = new CircleGeometry(0.5, 24).rotateX(-Math.PI / 2).scale(CLAWD_COLS * cw * 1.05, 1, depth * 1.6);
   return { ...merged, shadow, height: CLAWD_ROWS * ch, eyeY };
+}
+
+export interface MascotGeometry {
+  body: BufferGeometry;
+  /** Dark parts that stand on their own (beret, bow tie). */
+  standalone?: BufferGeometry;
+  /** Thin plates on the face: dark (glasses, visor), white, and the eyes (a separate mesh, so they can blink). */
+  dark?: BufferGeometry;
+  white?: BufferGeometry;
+  eye?: BufferGeometry;
+  eyeY: number;
+  shadow: BufferGeometry;
+  height: number;
+  width: number;
+}
+
+/** About as tall as Claude's mascot, whatever the grid size. */
+const MASCOT_HEIGHT = 1.02;
+
+/**
+ * A mascot as voxels. The drawing is extruded with a depth that grows with the distance from its outline, so it
+ * comes out rounded like the plush toy it is rather than a flat cut-out; face details are plates on its front.
+ */
+export function mascotGeometry(grid: readonly string[]): MascotGeometry {
+  const all = cells(grid);
+  const rows = grid.length, cols = grid[0]!.length;
+  const v = MASCOT_HEIGHT / rows;
+  const filled = (row: number, col: number, standalone: boolean) => {
+    const ch = grid[row]?.[col];
+    return ch !== undefined && ch !== '.' && (ch === 'K') === standalone;
+  };
+  /** Steps to the nearest empty cell, counting diagonals: 1 on the outline. */
+  const inset = (row: number, col: number, standalone: boolean) => {
+    for (let d = 1; d < 5; d++) {
+      for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) {
+        if ((Math.abs(dr) === d || Math.abs(dc) === d) && !filled(row + dr, col + dc, standalone)) return d;
+      }
+    }
+    return 5;
+  };
+  const depthAt = (row: number, col: number, standalone: boolean) => v * (standalone ? 1.2 + 1.4 * Math.min(inset(row, col, true), 3) : 2.4 + 1.5 * Math.min(inset(row, col, false), 4));
+  const parts: Record<MascotPart, BufferGeometry[]> = { body: [], standalone: [], dark: [], white: [], eye: [] };
+  const at = (c: Cell) => [(c.col + 0.5 - cols / 2) * v, (rows - 1 - c.row + 0.5) * v] as const;
+  for (const c of all) {
+    const [x, y] = at(c);
+    const standalone = c.part === 'standalone';
+    const depth = depthAt(c.row, c.col, standalone);
+    parts[standalone ? 'standalone' : 'body'].push(new BoxGeometry(v, v, depth).translate(x, y, 0));
+    if (c.part !== 'body' && !standalone) parts[c.part].push(new BoxGeometry(v * 1.001, v * 1.001, 0.02).translate(x, y, depth / 2 + 0.006));
+  }
+  const merge = (gs: BufferGeometry[]) => {
+    if (!gs.length) return undefined;
+    const g = mergeGeometries(gs)!;
+    for (const part of gs) part.dispose();
+    return g;
+  };
+  const eyes = all.filter(c => c.part === 'eye');
+  const eyeY = eyes.length ? eyes.reduce((s, c) => s + at(c)[1], 0) / eyes.length : 0;
+  const eye = merge(parts.eye)?.translate(0, -eyeY, 0);
+  const maxDepth = Math.max(...all.map(c => depthAt(c.row, c.col, c.part === 'standalone')));
+  const shadow = new CircleGeometry(0.5, 24).rotateX(-Math.PI / 2).scale(cols * v * 1.05, 1, maxDepth * 1.5);
+  return { body: merge(parts.body)!, standalone: merge(parts.standalone), dark: merge(parts.dark), white: merge(parts.white), eye, eyeY, shadow, height: rows * v, width: cols * v };
 }

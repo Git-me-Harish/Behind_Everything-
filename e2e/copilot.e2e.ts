@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { COPILOT_LOG } from '../playwright.config.ts';
 import { COPILOT_SESSION, copilotLive } from '../test/fixtures/copilot.ts';
 
-/** A Copilot session through the same screens — and an approval Copilot is waiting on, answered while you watch. */
+/** A Copilot session through the same screens, and an approval Copilot is waiting on, answered while you watch. */
 
 test('a Copilot session reads as Copilot everywhere, and shows an approval it is waiting on live', async ({ page }) => {
   const errors: string[] = [];
@@ -12,7 +12,7 @@ test('a Copilot session reads as Copilot everywhere, and shows an approval it is
 
   await page.goto('/');
   const list = page.getByRole('navigation', { name: 'Sessions' });
-  await expect(list.getByRole('img', { name: 'Copilot CLI' })).toBeVisible();
+  await expect(list.getByRole('img', { name: 'Copilot CLI', exact: true })).toBeVisible();
   await list.getByRole('button', { name: /Add tags to notes/ }).click();
   await expect(page).toHaveURL(new RegExp(`session=copilot-cli%3A${COPILOT_SESSION}`));
 
@@ -20,7 +20,7 @@ test('a Copilot session reads as Copilot everywhere, and shows an approval it is
   await expect(page.getByRole('banner')).toContainText('Copilot CLI · log');
   await expect(page.getByRole('region', { name: 'Session' })).toContainText('Copilot CLI 1.0.75');
   // Copilot does not log tokens: say so rather than show zero.
-  await expect(page.getByRole('region', { name: 'Session' }).getByTitle('Copilot CLI does not log token usage per call')).toContainText('—');
+  await expect(page.getByRole('region', { name: 'Session' }).getByTitle('Copilot CLI does not log token usage per call')).toContainText('n/a');
   const copilot = page.getByRole('region', { name: 'Agents' }).getByRole('button', { name: /^Copilot/ });
   await expect(copilot).toContainText('Waiting for you');
 
@@ -36,7 +36,8 @@ test('a Copilot session reads as Copilot everywhere, and shows an approval it is
   await expect(page.getByRole('region', { name: 'Needs attention' })).toContainText('Waiting for approval: Run Remove-Item -Recurse -Force dist');
   await expect(page.getByRole('region', { name: 'Needs attention' })).not.toContainText('Still running');
   await expect(map.getByRole('button', { name: /^Copilot:/ })).toBeAttached();
-  await expect(map.getByRole('button', { name: /^Copilot:/ }).locator('.mascot')).toHaveCount(0);
+  // Copilot is its goggled head.
+  await expect(map.getByRole('button', { name: /^Copilot:/ }).locator('.initial.mascot .mascot-icon')).toHaveCount(1);
 
   // You answer in Copilot; its log records the decision and the rest of the turn.
   fs.appendFileSync(COPILOT_LOG, copilotLive().answer);

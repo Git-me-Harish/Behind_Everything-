@@ -96,7 +96,7 @@ function buildGraph(): Graph {
 
 export const GRAPH = buildGraph();
 
-/** Shortest walk between two graph nodes (Dijkstra — the graph has ~45 nodes). */
+/** Shortest walk between two graph nodes (Dijkstra; the graph has ~45 nodes). */
 export function shortest(from: string, to: string, g: Graph = GRAPH): string[] {
   const d = new Map<string, number>([[from, 0]]);
   const prev = new Map<string, string>();
@@ -123,7 +123,7 @@ export const pathLength = (pts: P[]) => pts.reduce((sum, p, i) => (i ? sum + dis
 /** Half the width of the ground slab: the building plus a margin for the corner trees. */
 export const SLAB = SPAN / 2 + 2;
 
-/** The slab's corners, its underside and the tree tops — everything the camera must fit. */
+/** The slab's corners, its underside and the tree tops: everything the camera must fit. */
 export function footprint(): Array<[number, number, number]> {
   const h = SLAB;
   return [[-h, -0.9, -h], [h, -0.9, -h], [h, -0.9, h], [-h, -0.9, h], [-h, 2.4, -h], [h, 2.4, -h], [-h, 2.4, h], [h, 2.4, h]];

@@ -52,7 +52,7 @@ export function SessionHeader({ view }: { view: SessionState }) {
         <Stat value={`${view.tests.passed}/${view.tests.runs}`} label="Tests passed" tone={view.tests.last === 'failed' ? 'error' : undefined} />
         {assistantMeta(session.assistant).tokens
           ? <Stat value={compact(view.tokens.output)} label="Output tokens" />
-          : <Stat value="—" label="Output tokens" hint={`${assistantMeta(session.assistant).name} does not log token usage per call`} />}
+          : <Stat value="n/a" label="Output tokens" hint={`${assistantMeta(session.assistant).name} does not log token usage per call`} />}
       </div>
     </section>
   );
@@ -88,9 +88,9 @@ export function Agents({ view }: { view: SessionState }) {
             style={a.finished ? { opacity: 0.6 } : undefined}
             aria-pressed={filterAgent === a.id}
             onClick={() => store.setFilter({ agent: filterAgent === a.id ? undefined : a.id })}
-            title={a.phase_source === 'inferred' ? 'Phase inferred from a pattern of events — open the zone for the evidence' : 'Filter the timeline to this agent'}
+            title={a.phase_source === 'inferred' ? 'Phase inferred from a pattern of events. Open the zone for the evidence' : 'Filter the timeline to this agent'}
           >
-            <Avatar agent={a} color={color} busy={busy} />
+            <Avatar agent={a} agents={view.agents} color={color} busy={busy} />
             <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="who truncate">{a.label}</span>
@@ -147,7 +147,7 @@ export function ZoneBoard({ view, compact }: { view: SessionState; compact: bool
             <span className="zone-top">
               <span className="badge"><Icon size={12} aria-hidden />{meta.name}</span>
               <span className="occupants">
-                {occupants.map(a => <Avatar key={a.id} agent={a} color={agentColor(view.agents, a.id, assistant)} busy={!!a.activity} />)}
+                {occupants.map(a => <Avatar key={a.id} agent={a} agents={view.agents} color={agentColor(view.agents, a.id, assistant)} busy={!!a.activity} />)}
               </span>
             </span>
             <span className={`pill${z.source_class === 'inferred' ? ' inferred' : ''}`} title={z.label}>
@@ -166,7 +166,7 @@ export function Attention({ view }: { view: SessionState }) {
   const now = useNow(5000);
   const [all, setAll] = useState(false);
   const items = view.attention.filter(a => !a.resolved).slice().reverse();
-  // Long-running commands are judged against the clock, so only while following live — and not while the agent
+  // Long-running commands are judged against the clock, so only while following live, and not while the agent
   // is waiting for your approval to run them.
   const slow = replaying ? [] : Object.entries(view.commands.running)
     .filter(([, c]) => now - Date.parse(c.started_at) > LONG_RUNNING_MS && view.agents[c.agent_id]?.phase !== 'awaiting_input')

@@ -10,8 +10,8 @@ test('a Codex session reads as Codex everywhere, with the same rooms filled from
 
   await page.goto('/');
   const list = page.getByRole('navigation', { name: 'Sessions' });
-  await expect(list.getByRole('img', { name: 'Codex' })).toBeVisible();
-  await expect(list.getByRole('img', { name: 'Claude Code' })).toBeVisible();
+  await expect(list.getByRole('img', { name: 'Codex', exact: true })).toBeVisible();
+  await expect(list.getByRole('img', { name: 'Claude Code', exact: true }).first()).toBeVisible();
   await list.getByRole('button', { name: /Fix the cart total rounding bug/ }).click();
   await expect(page).toHaveURL(new RegExp(`session=codex%3A${CODEX_SESSION}`));
 
@@ -25,10 +25,12 @@ test('a Codex session reads as Codex everywhere, with the same rooms filled from
   await expect(room('Test & Build Lab')).toContainText('TESTS 1✓ 1✗');
   await expect(room('Implementation')).toContainText('2 FILES · +4 −1');
   await expect(room('Approval Gate')).toContainText('1 APPROVED');
-  // Codex is a person, not Claude's mascot.
+  // Codex is its plush blue cloud, in the map and beside it.
   const tag = map.getByRole('button', { name: /^Codex:/ });
   await expect(tag).toBeAttached();
-  await expect(tag.locator('.mascot')).toHaveCount(0);
+  await expect(tag.locator('.initial.mascot .mascot-icon')).toHaveCount(1);
+  await expect(tag.locator('.clawd')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Agents' }).locator('.avatar.mascot .mascot-icon')).toBeVisible();
   await expect(map.getByRole('button', { name: 'Follow Codex' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Coverage' }).click();

@@ -3,7 +3,7 @@ import { dist, GRAPH, pathLength, shortest, stationPos, type P } from './layout.
 
 /**
  * Agents walk the corridors between rooms. A walk takes as long as it takes at walking pace, but
- * never less than MIN_WALK or more than MAX_WALK seconds — agents change task every few seconds, so
+ * never less than MIN_WALK or more than MAX_WALK seconds: agents change task every few seconds, so
  * a long walk is sped up rather than leaving them forever in transit.
  */
 export const WALK_SPEED = 7; // units per second
@@ -59,7 +59,7 @@ const at = (node: string): Waypoint => ({ ...GRAPH.nodes.get(node)!, node });
 
 /**
  * Corridor route to `zone`'s station, from wherever the walker is: standing in `from`, or part-way
- * along a walk — then via either end of the current leg, whichever makes the shorter walk.
+ * along a walk, then via either end of the current leg, whichever makes the shorter walk.
  */
 function routeFrom(w: Walker, from: ZoneId, zone: ZoneId, station: Waypoint): Waypoint[] {
   // A station is reached through its room's entrance; the only station on a path is its last point, in `from`.

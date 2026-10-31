@@ -5,14 +5,17 @@ import {
 } from 'three';
 import { ZONES, type ZoneId, type ZoneStatus } from '../../../src/core/state.ts';
 import { BACK, bounds, clampView, fit, mix, onScreen, panBy, RIGHT, sameView, UP, zoomAround, type Bounds, type View, type Viewport } from './camera.ts';
-import { buildStatic, clawdGeometry, FLOOR, personGeometry, SLOTS, STATUS_SLOT, type ClawdGeometry, type Slot } from './build.ts';
+import { buildStatic, clawdGeometry, FLOOR, mascotGeometry, personGeometry, SLOTS, STATUS_SLOT, type ClawdGeometry, type MascotGeometry, type Slot } from './build.ts';
+import { INK, MASCOTS, type MascotId } from './mascots.ts';
+import { QualityGovernor } from './quality.ts';
 import { footprint, ROOM, roomCenter, roomCorners, WALL_H } from './layout.ts';
 import type { AgentModel, RoomModel, WorldModel } from './model.ts';
 import { retarget, spawn, step, walking, type Walker } from './motion.ts';
 import type { Palette } from './palette.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export interface LabelPos { x: number; y: number; on: boolean }
+/** Where a label's foot goes on screen; agents also say where their feet are, so a tag can drop below them. */
+export interface LabelPos { x: number; y: number; on: boolean; foot?: number }
 
 export interface WorldHandlers {
   zone(id: ZoneId): void;
@@ -103,6 +106,8 @@ export class World {
   private pulses: Array<{ mesh: Mesh; t: number }> = [];
   private people = new Map<string, Person>();
   private clawd?: ClawdGeometry;
+  /** Built once per mascot and shared by every agent wearing it. */
+  private mascots = new Map<MascotId, MascotGeometry>();
   private blinkTimer = 0;
   private model?: WorldModel;
   private opts: UpdateOptions = { snap: true, timeScale: 1 };
@@ -135,6 +140,9 @@ export class World {
   private drag?: { x: number; y: number; moved: boolean; id: number };
   private pinch?: { d: number; x: number; y: number };
   private observers: Array<{ disconnect(): void }> = [];
+  private quality: QualityGovernor;
+  /** When the last frame was drawn, to time frames drawn back to back while something moves. */
+  private lastFrame = 0;
   private cleanup: Array<() => void> = [];
 
   constructor(private canvas: HTMLCanvasElement, private host: HTMLElement, palette: Palette, private on: WorldHandlers, opts: { reducedMotion: boolean }) {
@@ -144,6 +152,7 @@ export class World {
     this.renderer.setClearColor(0x000000, 0);
     this.stats.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.renderer.setPixelRatio(this.stats.dpr);
+    this.quality = new QualityGovernor(this.stats.dpr, this.stats.dpr);
     this.palette = palette;
     this.bounds = bounds(footprint());
 
@@ -233,13 +242,13 @@ export class World {
     this.invalidate();
   }
 
-  /** Where a room's floor centre is on screen, in page coordinates — for tests and tooling. */
+  /** Where a room's floor centre is on screen, in page coordinates, for tests and tooling. */
   roomOnScreen(z: ZoneId): { x: number; y: number } {
     const c = roomCenter(z);
     return this.toPage(c.x, FLOOR, c.z);
   }
 
-  /** Where an agent's body is on screen, in page coordinates — for tests and tooling. */
+  /** Where an agent's body is on screen, in page coordinates, for tests and tooling. */
   agentOnScreen(id: string): { x: number; y: number } | undefined {
     const p = this.people.get(id);
     if (!p) return undefined;
@@ -285,6 +294,13 @@ export class World {
     this.animateTo(this.focused ? this.roomView(this.focused) : this.home, 450);
   }
 
+  /** Trades resolution for speed (or back), keeping the canvas the same size on screen. */
+  private setPixelRatio(dpr: number) {
+    this.stats.dpr = dpr;
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(this.vp.width, this.vp.height, false);
+  }
+
   /** Re-measures after the host changed size (e.g. expanded / collapsed). */
   resize() {
     const w = Math.max(1, this.host.clientWidth), h = Math.max(1, this.host.clientHeight);
@@ -311,6 +327,7 @@ export class World {
     for (const c of this.cleanup) c();
     for (const id of [...this.people.keys()]) this.removePerson(id);
     if (this.clawd) for (const g of Object.values(this.clawd)) if (g instanceof BufferGeometry) g.dispose();
+    for (const m of this.mascots.values()) for (const g of Object.values(m)) if (g instanceof BufferGeometry) g.dispose();
     this.scene.traverse(o => {
       if (o instanceof Mesh) {
         o.geometry.dispose();
@@ -413,8 +430,8 @@ export class World {
   // ── people ──────────────────────────────────────────────────────────────────
 
   private addPerson(a: AgentModel, w: Walker): Person {
-    const body = a.avatar === 'clawd' ? this.clawdBody(a) : this.humanBody(a);
-    const radius = a.avatar === 'clawd' ? 0.95 : 0.5;
+    const body = a.avatar === 'clawd' ? this.clawdBody(a) : a.avatar === 'person' ? this.humanBody(a) : this.mascotBody(a, a.avatar);
+    const radius = a.avatar === 'clawd' ? 0.95 : a.avatar === 'person' ? 0.5 : 0.8;
     const shadowMat = new MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.16, depthWrite: false });
     const ringMat = new MeshBasicMaterial({ color: a.color, transparent: true, opacity: 0.9, depthWrite: false });
     const shadow = new Mesh(body.shadow, shadowMat);
@@ -462,6 +479,31 @@ export class World {
       hit: body, meshes: [body, eyes, ...arms, ...legs], legs, arms, eyes, shadow: g.shadow, fades: [[skin, 1], [eyeMat, 1]],
       owned: [], height: g.height + 0.4, scale: a.main ? 1 : 0.72,
     };
+  }
+
+  /** Codex's plush cast and Copilot's head: one drawing each, in their own colours (Copilot wears its agent's). */
+  private mascotBody(a: AgentModel, id: MascotId): Body {
+    let g = this.mascots.get(id);
+    if (!g) this.mascots.set(id, (g = mascotGeometry(MASCOTS[id].grid)));
+    const skin = new MeshLambertMaterial({ color: MASCOTS[id].color ?? a.color, transparent: true });
+    const dark = new MeshLambertMaterial({ color: INK.dark, transparent: true });
+    const plate = (color: string) => new MeshBasicMaterial({ color, transparent: true });
+    const body = new Mesh(g.body, skin);
+    const meshes: Mesh[] = [body];
+    const fades: Body['fades'] = [[skin, 1]];
+    const add = (geo: BufferGeometry | undefined, mat: FadeMaterial) => {
+      if (!geo) return undefined;
+      const m = new Mesh(geo, mat);
+      meshes.push(m);
+      fades.push([mat, 1]);
+      return m;
+    };
+    add(g.standalone, dark);
+    add(g.dark, plate(INK.dark));
+    add(g.white, plate(INK.white));
+    const eyes = add(g.eye, plate(MASCOTS[id].eye ?? INK.dark));
+    if (eyes) eyes.position.y = g.eyeY;
+    return { hit: body, meshes, legs: [], arms: [], eyes, shadow: g.shadow, fades, owned: [], height: g.height + 0.45, scale: a.main ? 1 : 0.74 };
   }
 
   private removePerson(id: string) {
@@ -540,6 +582,11 @@ export class World {
     this.dirty = false;
     this.last = now;
     this.lastAmbient = now;
+    if (moving && now - this.lastFrame < 250) {
+      const dpr = this.quality.sample(now - this.lastFrame, now);
+      if (dpr !== undefined) this.setPixelRatio(dpr);
+    }
+    this.lastFrame = now;
     this.render(now);
     if (moving || ambient) this.schedule();
     else {
@@ -623,7 +670,9 @@ export class World {
     const { obj, legs, arms, model } = p;
     const animate = !this.reducedMotion;
     const clawd = model.avatar === 'clawd';
-    const want = clawd && !walked ? FACE_VIEWER : p.w.yaw;
+    const motion = model.avatar === 'clawd' || model.avatar === 'person' ? undefined : MASCOTS[model.avatar].motion;
+    // Mascots are their faces: at rest they turn to the viewer.
+    const want = (clawd || motion) && !walked ? FACE_VIEWER : p.w.yaw;
     const turn = Math.atan2(Math.sin(want - p.facing), Math.cos(want - p.facing));
     p.facing = animate ? p.facing + Math.sign(turn) * Math.min(Math.abs(turn), dt * 9) : want;
     let bob = 0, sway = 0, swing = 0;
@@ -643,9 +692,24 @@ export class World {
       reach[0] = Math.max(0, Math.sin(now / 85)) * 0.06;
       reach[1] = Math.max(0, -Math.sin(now / 85)) * 0.06;
     } else if (animate && model.thinking) sway = Math.sin(now / 700) * (clawd ? 0.05 : 0.03);
+    let squash = 0;
+    if (motion === 'hop' && animate) {
+      // Plush toys hop where people walk, squashing as they land; they bounce while waiting and wobble at work.
+      if (walked) { const s = Math.abs(Math.sin(p.stride * 9)); bob = s * 0.16; squash = (1 - s) * 0.07; }
+      else if (model.waiting) { const s = Math.abs(Math.sin(now / 230)); bob = s * 0.12; squash = (1 - s) * 0.05; }
+      else if (model.busy) { bob = 0; sway = Math.sin(now / 110) * 0.045; }
+    }
+    if (motion === 'hover') {
+      // Copilot's head floats; it bobs while it moves or works, and rocks while waiting for you.
+      bob = 0.16 + (animate && (walked || model.busy) ? Math.sin(now / 260) * 0.04 : 0);
+      if (animate && model.waiting) sway = Math.sin(now / 160) * 0.07;
+    }
     obj.position.set(p.w.pos.x, FLOOR + bob, p.w.pos.z);
     obj.rotation.set(0, p.facing, sway);
-    if (clawd) {
+    obj.scale.set(p.scale * (1 + squash), p.scale * (1 - squash), p.scale * (1 + squash));
+    if (motion) {
+      // No limbs: the whole body moves.
+    } else if (clawd) {
       legs.forEach((l, i) => (l.position.y = lift[i]!));
       arms.forEach((a, i) => (a.position.y = reach[i]!));
     } else {
@@ -694,7 +758,12 @@ export class World {
       // Over the back half of the room: the label's foot sits between the room's centre and its far corner.
       put(`zone:${z}`, c.x - LABEL_INSET, WALL_H, c.z - LABEL_INSET);
     }
-    for (const [id, p] of this.people) if (!p.leaving) put(`agent:${id}`, p.obj.position.x, p.obj.position.y + p.height * p.obj.scale.y, p.obj.position.z);
+    for (const [id, p] of this.people) {
+      if (p.leaving) continue;
+      put(`agent:${id}`, p.obj.position.x, p.obj.position.y + p.height * p.obj.scale.y, p.obj.position.z);
+      v.set(p.obj.position.x, FLOOR, p.obj.position.z).project(this.camera);
+      out.get(`agent:${id}`)!.foot = ((1 - v.y) / 2) * this.vp.height;
+    }
     this.on.labels(out, ROOM * Math.SQRT2 * this.view.zoom);
   }
 

@@ -56,11 +56,17 @@
 .wl-agent[aria-pressed="true"] .agent-tag { background: var(--ac); color: #fff; }
 .wl-agent[aria-pressed="true"] .agent-tag .phase { color: rgba(255, 255, 255, 0.85); }
 .wl-agent.finished { opacity: 0.6; }
+/* Dropped below the agent's feet so a room's name stays readable: the bubble follows, under the tag. */
+.wl-agent.below { padding-bottom: 0; padding-top: 2px; }
+.wl-agent.below .bubble { order: 3; }
 .agent-tag .initial { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--ac); color: #fff; font: 700 9.5px var(--font-mono); }
-/* Claude's tag carries its mascot instead of a letter; on the pressed (clay) tag it turns white to stay visible. */
+/* Tags carry the agent's mascot instead of a letter. On a pressed tag (filled with the agent's colour) Claude's crab
+   turns white to stay visible; the other mascots, which have their own eyes and faces, sit on a white backing. */
 .agent-tag .initial.mascot { width: 22px; height: 16px; margin-left: 3px; border-radius: 0; background: transparent; }
 .agent-tag .initial.mascot .clawd { width: 22px; height: auto; display: block; }
-.wl-agent[aria-pressed="true"] .agent-tag .initial.mascot rect:not([fill^="var"]) { fill: #fff; }
+.agent-tag .initial.mascot .mascot-icon { width: 18px; height: 16px; display: block; margin: 0 auto; }
+.wl-agent[aria-pressed="true"] .agent-tag .initial.mascot .clawd rect:not([fill^="var"]) { fill: #fff; }
+.wl-agent[aria-pressed="true"] .agent-tag .initial.mascot .mascot-icon { background: #fff; border-radius: 4px; padding: 1px; box-sizing: content-box; }
 .agent-tag .phase { color: var(--muted); font: 600 9.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; font-variant-ligatures: none; }
 .wl-agent .doing {
   display: none; order: -1; max-width: 220px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line);

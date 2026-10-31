@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createClaudeParser } from '../../src/adapters/claude-code/parse.js';
 import { ZONES, reduce, type ZoneId } from '../../src/core/state.js';
 import { Box3 } from 'three';
-import { clawdGeometry } from '../../web/src/world/build.js';
+import { clawdGeometry, mascotGeometry } from '../../web/src/world/build.js';
+import { MASCOTS, mascotFor } from '../../web/src/world/mascots.js';
+import { QualityGovernor } from '../../web/src/world/quality.js';
+import { agentColor } from '../../web/src/lib/meta.js';
 import { CLAWD, CLAWD_COLS, CLAWD_ROWS, clawdRuns } from '../../web/src/world/clawd.js';
 import { BACK, bounds, clampView, fit, mix, onScreen, panBy, unproject, zoomAround, type V3 } from '../../web/src/world/camera.js';
 import { CORRIDOR, door, entry, footprint, GRAPH, LANES, ROOM, roomCenter, shortest, SPAN, stationPos, STATIONS, type P } from '../../web/src/world/layout.js';
@@ -50,7 +53,7 @@ describe('building layout', () => {
 
   it('connects every room to every other through the corridors', () => {
     for (const a of ZONES) for (const b of ZONES) expect(shortest(`entry:${a}`, `entry:${b}`).length, `${a}→${b}`).toBeGreaterThan(0);
-    // Every edge runs along a corridor or through a doorway — never diagonally.
+    // Every edge runs along a corridor or through a doorway, never diagonally.
     for (const [from, edges] of GRAPH.edges) for (const e of edges) {
       const p = GRAPH.nodes.get(from)!, q = GRAPH.nodes.get(e.to)!;
       expect(Math.abs(p.x - q.x) < 1e-9 || Math.abs(p.z - q.z) < 1e-9, `${from}→${e.to}`).toBe(true);
@@ -211,7 +214,9 @@ describe('world model', () => {
     const m = worldModel(after('t-edit1', 'started'));
     expect(m.agents).toHaveLength(1);
     expect(m.agents[0]).toMatchObject({ id: 'main', zone: 'implementation', slot: 0, busy: true, main: true, initial: 'C', avatar: 'clawd' });
-    expect(worldModel(final, 'codex').agents[0]!.avatar).toBe('person');
+    expect(worldModel(final, 'codex').agents[0]!.avatar).toBe('blob');
+    expect(worldModel(final, 'copilot-cli').agents[0]!.avatar).toBe('copilot');
+    expect(worldModel(final, 'something-else').agents[0]!.avatar).toBe('person');
     expect(m.agents[0]!.summary).toContain('date.ts');
   });
 
@@ -269,5 +274,69 @@ describe('Claude mascot', () => {
     expect(front.min.z).toBeGreaterThan(0);
     expect(back.max.z).toBeLessThan(0);
     for (const geo of Object.values(g)) if (typeof geo === 'object') geo.dispose();
+  });
+});
+
+describe('Codex and Copilot mascots', () => {
+  it('draws every mascot on a rectangular grid of known parts', () => {
+    for (const [id, m] of Object.entries(MASCOTS)) {
+      expect(new Set(m.grid.map(r => r.length)).size, id).toBe(1);
+      expect(m.grid.join('').replace(/[.#Kkwe]/g, ''), id).toBe('');
+    }
+  });
+
+  it('casts Codex subagents in turn and colours them as their toys', () => {
+    expect([0, 1, 2, 3].map(i => mascotFor('codex', false, i))).toEqual(['heart', 'frog', 'triangle', 'heart']);
+    expect(mascotFor('codex', true, -1)).toBe('blob');
+    expect(mascotFor('copilot-cli', false, 4)).toBe('copilot');
+    const agents = { main: {}, a: {}, b: {} } as unknown as Parameters<typeof agentColor>[0];
+    expect([agentColor(agents, 'main', 'codex'), agentColor(agents, 'a', 'codex'), agentColor(agents, 'b', 'codex')]).toEqual([MASCOTS.blob.color, MASCOTS.heart.color, MASCOTS.frog.color]);
+    // Copilot's heads wear the palette, never the main agent's violet.
+    expect(agentColor(agents, 'a', 'copilot-cli')).not.toBe(agentColor(agents, 'main', 'copilot-cli'));
+  });
+
+  it('builds a rounded figure, about as tall as Claude, with face plates in front of the body', () => {
+    for (const id of Object.keys(MASCOTS) as Array<keyof typeof MASCOTS>) {
+      const g = mascotGeometry(MASCOTS[id].grid);
+      const body = new Box3().setFromBufferAttribute(g.body.getAttribute('position') as never);
+      expect(g.height).toBeCloseTo(1.02, 2);
+      // Stands on the floor: the body, or what hangs below it (the frog's bow tie).
+      const feet = Math.min(body.min.y, g.standalone ? new Box3().setFromBufferAttribute(g.standalone.getAttribute('position') as never).min.y : Infinity);
+      expect(feet, id).toBeCloseTo(0, 5);
+      // Plush, not a cut-out: the middle is deeper than the outline.
+      const depth = body.max.z - body.min.z;
+      expect(depth, id).toBeGreaterThan(g.height * 0.35);
+      for (const plate of [g.dark, g.white]) if (plate) expect(new Box3().setFromBufferAttribute(plate.getAttribute('position') as never).max.z, id).toBeGreaterThan(0.05);
+    }
+    expect(mascotGeometry(MASCOTS.copilot.grid).eye).toBeDefined();
+    expect(mascotGeometry(MASCOTS.heart.grid).eye).toBeUndefined();
+  });
+});
+
+describe('render quality', () => {
+  const run = (g: QualityGovernor, ms: number, n: number, t0 = 0) => {
+    const changes: number[] = [];
+    for (let i = 0; i < n; i++) { const d = g.sample(ms, t0 + i * ms); if (d !== undefined) changes.push(d); }
+    return changes;
+  };
+
+  it('lowers the resolution while motion stutters, never below 1', () => {
+    const g = new QualityGovernor(2, 2);
+    expect(run(g, 50, 200)).toEqual([1.5, 1]);
+    expect(g.dpr).toBe(1);
+  });
+
+  it('ignores a few slow frames among quick ones', () => {
+    const g = new QualityGovernor(2, 2);
+    for (let i = 0; i < 200; i++) expect(g.sample(i % 5 === 0 ? 80 : 16, i * 16)).toBeUndefined();
+  });
+
+  it('restores it slowly once frames are quick again, and no higher than it started', () => {
+    const g = new QualityGovernor(2, 2);
+    run(g, 50, 40);
+    expect(g.dpr).toBe(1.5);
+    expect(run(g, 10, 200, 0)).toEqual([]);
+    expect(run(g, 10, 200, 20_000)).toEqual([2]);
+    expect(run(g, 10, 400, 60_000)).toEqual([]);
   });
 });
