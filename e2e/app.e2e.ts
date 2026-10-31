@@ -70,10 +70,10 @@ test('streams new activity live over the WebSocket', async () => {
 
 test('replays the session from any point and returns to live', async () => {
   await page.getByRole('slider', { name: 'Replay position' }).fill('6');
-  await expect(page.getByText(/Replaying — showing the session as it was/)).toBeVisible();
+  await expect(page.getByText(/Replaying: the session as it was/)).toBeVisible();
   await expect(zone('Implementation')).toContainText('0 FILES');
   await page.keyboard.press('l');
-  await expect(page.getByText(/Replaying — showing/)).toBeHidden();
+  await expect(page.getByText(/Replaying: the session/)).toBeHidden();
   await expect(zone('Implementation')).toContainText('1 FILE');
 });
 

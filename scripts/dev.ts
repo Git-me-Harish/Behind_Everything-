@@ -1,6 +1,6 @@
 /**
  * Development: the collector (API + live stream) plus Vite's dev server with hot reload for the UI.
- * Open http://localhost:5173 — Vite proxies /api and /ws to the collector.
+ * Open http://localhost:5173; Vite proxies /api and /ws to the collector.
  */
 import { spawn } from 'node:child_process';
 

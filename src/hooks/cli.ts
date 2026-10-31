@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { codexNotes, HOOK_ASSISTANTS, install, status, uninstall, type Change, type HookAssistant } from './install.js';
 
-export const HOOKS_HELP = `behind-everything hooks — the opt-in bridge that shows approval prompts while they wait for you
+export const HOOKS_HELP = `behind-everything hooks: the opt-in bridge that shows approval prompts while they wait for you
 
 Usage: behind-everything hooks <install | uninstall | status> [--claude] [--codex] [--port <n>]
 
@@ -37,7 +37,7 @@ export async function runHooks(action: string | undefined, o: { claude?: boolean
           const seen = health?.sources?.find((x: any) => x.assistant === a)?.hooks;
           const state = s.error ? `cannot read ${s.file}: ${s.error}`
             : !s.installed ? 'not installed'
-            : `installed (port ${s.port ?? '?'}${s.port !== o.port ? ` — not ${o.port}, reinstall with --port ${o.port}` : ''})`;
+            : `installed (port ${s.port ?? '?'}${s.port !== o.port ? `, not ${o.port}: reinstall with --port ${o.port}` : ''})`;
           const live = !health ? 'Behind Everything is not running on this port'
             : seen?.events ? `${seen.events} hook call(s) received, ${seen.matched} matched to a running call${seen.unmatched ? `, ${seen.unmatched} unmatched` : ''}`
             : 'no hook calls received yet (they arrive when an approval prompt opens)';

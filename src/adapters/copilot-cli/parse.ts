@@ -7,7 +7,7 @@ import { clipLine, lineCount, MAX_PATCH_LINES, oneLine, parsePatch, patchFromCon
 export const ADAPTER = { name: 'copilot-log', version: '1', capture: 'log' } as const;
 
 /**
- * Copilot CLI writes one typed event per line to `session-state/<id>/events.jsonl` — the same stream its SDK
+ * Copilot CLI writes one typed event per line to `session-state/<id>/events.jsonl`, the same stream its SDK
  * exposes (`session-events.schema.json` ships with the CLI). Streaming deltas, idle and title events are ephemeral
  * and never reach the file. A Copilot "turn" is one model call, so a user interaction (our turn) runs from the
  * prompt to the first model call that requests no tools.
@@ -399,7 +399,7 @@ export function createCopilotParser(file: string) {
         const text = String(d.content ?? '').trim();
         const m = modelCalls.get(String(d.turnId));
         if (m && agent === 'main' && text) m.messages++;
-        // That reasoning happened, once per model call — never its content.
+        // That reasoning happened, once per model call, never its content.
         const key = `${agent}:${d.turnId ?? id}`;
         if ((d.reasoningText || d.reasoningOpaque || d.reasoningBlocks) && !reasoned.has(key)) {
           reasoned.add(key);
@@ -467,7 +467,7 @@ export function createCopilotParser(file: string) {
 
   /**
    * Called once everything written so far has been read. A permission request still open at that point is one
-   * Copilot is waiting on — usually for you — so it is shown as pending until its decision arrives.
+   * Copilot is waiting on (usually for you), so it is shown as pending until its decision arrives.
    */
   function idle(): CanonicalEvent[] {
     out = [];

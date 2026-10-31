@@ -50,7 +50,7 @@ class Store {
     live: initialState(''), cursor: null, playing: false, speed: 4, selection: null, filter: emptyFilter(),
     showCoverage: false, showShortcuts: false, expanded: false, sidebar: readSidebar(), drawer: false,
   };
-  /** performance.now() when the newest live events arrived — the world measures event-to-pixel latency from it. */
+  /** performance.now() when the newest live events arrived; the world measures event-to-pixel latency from it. */
   arrivedAt = 0;
   private listeners = new Set<Listener>();
   private replay?: ReplayIndex;
@@ -109,7 +109,7 @@ class Store {
     ws.onopen = () => {
       this.retry = 0;
       this.set({ connection: 'live' });
-      // Anything that happened while not connected — including between the first load and this first connection.
+      // Anything that happened while not connected, including between the first load and this first connection.
       void this.refreshSessions();
       void this.backfill();
     };

@@ -13,7 +13,7 @@ export interface WaitingItem {
 const STALE_MS = 12 * 60 * 60_000;
 
 /**
- * What each session is waiting on you for — approvals and questions — across all sessions, so the UI can alert you
+ * What each session is waiting on you for (approvals and questions) across all sessions, so the UI can alert you
  * about a session you are not looking at. Same rules as the reducer's Approval Gate; replaying events is idempotent.
  */
 export class WaitingTracker {

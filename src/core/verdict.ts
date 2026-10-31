@@ -17,7 +17,7 @@ const CHECK_FAILURES: RegExp[] = [
 ];
 
 /**
- * A test or check that exited 0 but whose output reports failures — typically because it was piped
+ * A test or check that exited 0 but whose output reports failures, typically because it was piped
  * (`pnpm test | tail`), so the exit code is the last command's. Returns the matching evidence, or undefined.
  * The verdict is an inference from output text, never presented as observed.
  */

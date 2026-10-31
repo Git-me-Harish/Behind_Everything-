@@ -52,14 +52,14 @@ export function App() {
         {connection === 'offline' && <div className="banner" role="alert">Can’t reach the collector. Is <span className="mono">behind-everything</span> still running? Retrying…</div>}
         {cursor !== null && (
           <div className="banner" role="status">
-            Replaying — showing the session as it was at <b>{events[cursor - 1] ? clock(events[cursor - 1]!.ts) : 'the start'}</b>.{' '}
+            Replaying: the session as it was at <b>{events[cursor - 1] ? clock(events[cursor - 1]!.ts) : 'the start'}</b>.{' '}
             <button className="link" onClick={() => store.goLive()}>Go live</button>
           </div>
         )}
         {!sessionId && sessionsLoaded && (
           <div className="empty" style={{ marginTop: 80 }}>
             <h2>Waiting for your first session</h2>
-            <p>Open Claude Code, Codex or Copilot CLI in any project and start working — its activity appears here live. Nothing to configure.</p>
+            <p>Open Claude Code, Codex or Copilot CLI in any project and start working. Its activity appears here live. Nothing to configure.</p>
           </div>
         )}
         {sessionId && (

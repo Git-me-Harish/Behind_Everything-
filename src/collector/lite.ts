@@ -15,7 +15,7 @@ export function liteEvent<T extends CanonicalEvent>(e: T): T {
   if (e.payload) {
     const payload: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(e.payload)) {
-      // Numbers are never bulky — and `input`/`output` are also token counts on usage events.
+      // Numbers are never bulky, and `input`/`output` are also token counts on usage events.
       if (DETAIL_ONLY.has(k) && typeof v !== 'number') continue;
       payload[k] = k === 'command' && typeof v === 'string' ? truncate(v, 300) : v;
     }

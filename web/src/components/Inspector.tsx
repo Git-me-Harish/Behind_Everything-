@@ -18,7 +18,7 @@ export function Inspector({ view, activity }: { view: SessionState; activity?: A
         ? <ZoneDetail id={selection.id} view={view} />
         : activity
           ? <ActivityDetail a={activity} view={view} />
-          : <Closeable title="Not available"><p className="muted">This event is not in the current view — it may be filtered out or after the replay position.</p></Closeable>}
+          : <Closeable title="Not available"><p className="muted">This event is not in the current view. It may be filtered out or after the replay position.</p></Closeable>}
     </aside>
   );
 }
@@ -254,7 +254,7 @@ function EvidenceView({ event, label }: { event: StoredEvent; label: string }) {
           {data && 'error' in data && <p className="muted">{data.error}</p>}
           {data && 'record' in data && (
             <>
-              <p className="muted" style={{ margin: '0 0 6px', fontSize: 11.5 }}>Raw record from <span className="mono">{data.file}</span>, line {data.line} — redacted.</p>
+              <p className="muted" style={{ margin: '0 0 6px', fontSize: 11.5 }}>Raw record from <span className="mono">{data.file}</span>, line {data.line}, redacted.</p>
               <pre className="code">{JSON.stringify(data.record, null, 2)}</pre>
             </>
           )}
@@ -370,7 +370,7 @@ function Delivery({ view }: { view: SessionState }) {
   if (!view.tests.runs) verify.push('No tests were run in this session.');
   else if (view.tests.last === 'failed') verify.push('The most recent test run failed.');
   if (view.builds.last === 'failed') verify.push('The most recent check or build failed.');
-  if (view.approvals.blocked) verify.push(`${view.approvals.blocked} action${view.approvals.blocked > 1 ? 's were' : ' was'} blocked — confirm the agent worked around them correctly.`);
+  if (view.approvals.blocked) verify.push(`${view.approvals.blocked} action${view.approvals.blocked > 1 ? 's were' : ' was'} blocked. Confirm the agent worked around them correctly.`);
   if (Object.values(view.files).some(f => f.edits > 0)) verify.push('Review the changed files above before committing.');
   return (
     <>

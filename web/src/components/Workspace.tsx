@@ -67,7 +67,7 @@ export function Workspace({ view }: { view: SessionState }) {
       </div>
       {mode === 'world' && failure && (
         <div className="notice" role="status">
-          The 3D map is unavailable — {failure}. Showing the board instead.
+          The 3D map is unavailable ({failure}). Showing the board instead.
           {hasWebGL2() && <> <button className="link" onClick={() => setFailure(undefined)}>Try again</button></>}
         </div>
       )}

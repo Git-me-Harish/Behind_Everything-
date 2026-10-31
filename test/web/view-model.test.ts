@@ -55,7 +55,7 @@ describe('buildRows', () => {
     const kinds = rows.flatMap(r => (r.type === 'activity' ? [r.activity.kind] : []));
     expect(kinds).not.toContain('usage.tokens');
     expect(kinds).not.toContain('user.prompt');
-    expect(kinds).toContain('assistant.reasoning'); // 2.3s — long enough to show
+    expect(kinds).toContain('assistant.reasoning'); // 2.3s: long enough to show
   });
 
   it('filters by category, failure, file, and free text', () => {

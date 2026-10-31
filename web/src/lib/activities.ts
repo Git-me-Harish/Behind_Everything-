@@ -154,7 +154,7 @@ export function asOf(activities: Activity[], limit: number | null): Activity[] {
   return out;
 }
 
-/** The timeline row that contains a given event — used to jump from evidence ids to rows. */
+/** The timeline row that contains a given event, used to jump from evidence ids to rows. */
 export function activityForEvent(activities: Activity[], eventId: string): Activity | undefined {
   return activities.find(a => a.start.id === eventId || a.result?.id === eventId || a.related.some(r => r.id === eventId));
 }

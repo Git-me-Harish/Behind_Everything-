@@ -328,7 +328,7 @@ export function createCodexParser(file: string) {
       }
     };
 
-    /** At the end of a turn, calls Codex never reported on are closed — outcome unknown, so marked inferred. */
+    /** At the end of a turn, calls Codex never reported on are closed with an unknown outcome, so marked inferred. */
     const closeTurn = (turn: string | undefined, status: Status) => {
       for (const [id, c] of calls) if (c.turn === turn) finish(id, { status, source_class: 'inferred', payload: { note: 'Codex did not record how this ended; the turn finished' } });
     };

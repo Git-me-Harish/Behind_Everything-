@@ -114,7 +114,7 @@ describe('Claude Code adapter', () => {
   });
 });
 
-describe('Claude Code adapter — inspector payloads', () => {
+describe('Claude Code adapter: inspector payloads', () => {
   const { events } = parseAll(demoSession().main.jsonl());
   it('keeps unified-diff lines for edits', () => {
     const r = events.find(e => e.correlation?.call_id === 't-edit1' && e.status === 'succeeded')!;
@@ -134,7 +134,7 @@ describe('Claude Code adapter — inspector payloads', () => {
   });
 });
 
-describe('Claude Code adapter — prompt context', () => {
+describe('Claude Code adapter: prompt context', () => {
   const prompt = (content: unknown) => parseAll(JSON.stringify({ type: 'user', uuid: 'u', promptId: 'p', sessionId: SESSION, timestamp: '2026-10-29T10:00:00Z', origin: { kind: 'human' }, message: { role: 'user', content } })).events;
 
   it('strips IDE context tags from the prompt and records which were present', () => {
