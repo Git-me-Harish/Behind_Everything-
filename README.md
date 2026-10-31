@@ -3,12 +3,12 @@
 See what your AI coding agent is actually doing.
 
 Behind Everything is a local-first app that watches Claude Code, Codex and GitHub Copilot CLI sessions
-as they run and turns their real activity — files read, edits made, commands run, tests, approvals, subagents —
+as they run and turns their real activity (files read, edits made, commands run, tests, approvals, subagents)
 into a live 3D workspace, a searchable timeline and replayable sessions.
 
 Every signal is labelled **observed**, **inferred** or **unavailable**. Nothing leaves your machine.
 
-![Behind Everything — session overview](docs/images/overview.png)
+![Behind Everything: session overview](docs/images/overview.png)
 
 - Product brief: [docs/agent_activity_visualizer_product_concept.docx](docs/agent_activity_visualizer_product_concept.docx)
 - Architecture & roadmap: [docs/PLAN.md](docs/PLAN.md)
@@ -23,7 +23,7 @@ pnpm install
 pnpm start
 ```
 
-Your browser opens at <http://127.0.0.1:47821>. Use Claude Code, Codex or Copilot CLI (in the terminal or VS Code) as usual in any project — its activity appears live. Logs are read from `~/.claude/projects`, `~/.codex/sessions` and `~/.copilot/session-state` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `COPILOT_HOME` respected).
+Your browser opens at <http://127.0.0.1:47821>. Use Claude Code, Codex or Copilot CLI (in the terminal or VS Code) as usual in any project. Its activity appears live. Logs are read from `~/.claude/projects`, `~/.codex/sessions` and `~/.copilot/session-state` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `COPILOT_HOME` respected).
 Nothing to configure in any of them. Options: `pnpm start -- --help`.
 
 ## What you see
@@ -32,23 +32,23 @@ Nothing to configure in any of them. Options: `pnpm start -- --help`.
 | --- | --- |
 | **Sessions** | Every recent Claude Code, Codex and Copilot session, live ones marked, each with its assistant's mark. Pick one to explore. Collapse the list (top-left button or `s`) for a wider workspace; it stays the way you left it. On phones it is a drawer. |
 | **Agents** | Claude and any subagents, each with its current phase (exploring, implementing, testing, waiting for you…) and the tool call it is running, with a live timer. |
-| **Workspace** | An isometric building with nine rooms — Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay — each with a live status pill. Claude — its pixel mascot, in voxels — and its subagents (smaller mascots in their own colours) walk the corridors to the room of what they are doing now; they type while a tool runs, wave while waiting for you, and blink now and then. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
+| **Workspace** | An isometric building with nine rooms (Explorer, Planning, Implementation, Tools, Mission Control, Test & Build Lab, Approval Gate, Review, Repair Bay), each with a live status pill. Every assistant walks the corridors as its mascot, in voxels: Claude's pixel crab, Codex's plush blue cloud in a beret (its subagents are the heart, the frog and the triangle) and Copilot's goggled head. They go to the room of what they are doing now, show when a tool runs or they wait for you, and blink now and then. The furniture is data: books are files read, sticky notes are plan items, lit monitors are files changed, test tubes are verdicts, crates are files ready for review; the Approval Gate's barrier drops while something waits for you and the Repair Bay beacon turns while a failure is unfixed. Click a room for its details, a person for what they are doing. Also available as a flat board or a strip. |
 | **Needs attention** | Approvals and questions waiting for you, failed tests and commands, blocked actions, edit loops, commands running too long. Click to jump to the evidence. |
 | **Timeline** | Every action, grouped by turn: tool calls paired with their results, exit codes, durations, diff sizes. Filter by kind, failures, agent or file; search everything. |
-| **Details** | The full story of one action: command and output, the actual diff, the plan, the question and your answer, permission decisions — and the raw transcript record it came from. |
+| **Details** | The full story of one action: command and output, the actual diff, the plan, the question and your answer, permission decisions, and the raw transcript record it came from. |
 | **Replay** | Drag the scrubber or press play: the whole screen shows the session exactly as it was at that moment. |
 | **Coverage** | What the collector can and cannot see, how many values were redacted, and any record types it did not recognise. |
 
 ![Details panel showing a diff](docs/images/inspector.png)
 
 **Honest by design.** Anything derived rather than read directly is marked *inferred* (dashed outline, `~`) and links to
-the events behind it — for example the Repair Bay, or a test run that exited 0 but whose output reports failures
+the events behind it: for example the Repair Bay, or a test run that exited 0 but whose output reports failures
 (usually a piped command). The model's private reasoning is never shown; only that it reasoned, and for how long.
 
 ### Know when an agent is waiting for you
 
 A session waiting on you (an approval or a question) gets a pulsing amber dot and a **Waiting for you** pill in the
-sessions list, and the tab title counts them — `(1) Waiting`. Turn on the bell in the top bar for a desktop
+sessions list, and the tab title counts them: `(1) Waiting`. Turn on the bell in the top bar for a desktop
 notification; clicking it opens that session.
 
 Copilot logs its approval prompts as they open, so they show up with nothing to install. Claude Code and Codex only
@@ -62,7 +62,7 @@ pnpm hooks uninstall   # removes exactly what install added
 
 The hook only forwards the request to Behind Everything on 127.0.0.1. It never answers a prompt, never blocks, prints
 nothing, and does nothing when Behind Everything is not running. Codex runs a new hook only after you trust it
-(`/hooks` in the Codex CLI). Details: [docs/CAPABILITIES.md](docs/CAPABILITIES.md#hook-bridge-opt-in--claude-code-and-codex).
+(`/hooks` in the Codex CLI). Details: [docs/CAPABILITIES.md](docs/CAPABILITIES.md#hook-bridge-opt-in-claude-code-and-codex).
 
 ### Keyboard
 
@@ -74,8 +74,8 @@ Full screen (⤢) gives the map every gesture; `Esc` returns.
 ### Devices and browsers
 
 Works on phones, tablets, laptops and large screens, with touch, mouse, pen or keyboard, in Chrome, Edge, Firefox and Safari
-(browser tests run on Chromium, Firefox and WebKit at seven screen sizes). The 3D map needs WebGL 2; without it — or if
-the graphics driver gives up — the flat board takes over and says why. *Reduce motion* is honoured: agents and the
+(browser tests run on Chromium, Firefox and WebKit at seven screen sizes). The 3D map needs WebGL 2; without it, or if
+the graphics driver gives up, the flat board takes over and says why. *Reduce motion* is honoured: agents and the
 camera jump instead of moving.
 
 ## API
