@@ -10,21 +10,21 @@ Every signal is labelled **observed**, **inferred** or **unavailable**. Nothing 
 
 ![Behind Everything: session overview](docs/images/overview.png)
 
+- Website: <https://git-me-harish.github.io/Behind_Everything-/>
 - Product brief: [docs/agent_activity_visualizer_product_concept.docx](docs/agent_activity_visualizer_product_concept.docx)
 - Architecture & roadmap: [docs/PLAN.md](docs/PLAN.md)
 - What we can and can't see: [docs/CAPABILITIES.md](docs/CAPABILITIES.md)
 
 ## Quick start
 
-Requires Node 22+ (Node 20 works but needs a C++ toolchain for SQLite) and pnpm.
-
 ```sh
-pnpm install
-pnpm start
+npx behind-everything
 ```
 
-Your browser opens at <http://127.0.0.1:47821>. Use Claude Code, Codex or Copilot CLI (in the terminal or VS Code) as usual in any project. Its activity appears live. Logs are read from `~/.claude/projects`, `~/.codex/sessions` and `~/.copilot/session-state` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `COPILOT_HOME` respected).
-Nothing to configure in any of them. Options: `pnpm start -- --help`.
+Requires Node.js 22 or newer (Windows, macOS, Linux). Your browser opens at <http://127.0.0.1:47821>. Use Claude Code, Codex or Copilot CLI (in the terminal or VS Code) as usual in any project. Its activity appears live. Logs are read from `~/.claude/projects`, `~/.codex/sessions` and `~/.copilot/session-state` (`CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `COPILOT_HOME` respected).
+Nothing to configure in any of them. Options: `npx behind-everything --help`. Stop it with Ctrl+C; its data lives in `~/.behind-everything`.
+
+From a clone: `pnpm install && pnpm start`.
 
 ## What you see
 
@@ -55,9 +55,9 @@ Copilot logs its approval prompts as they open, so they show up with nothing to 
 write an approval once you have answered it; to see their prompts while they wait, opt in to the hook bridge:
 
 ```sh
-pnpm hooks install     # adds one background PermissionRequest hook to Claude Code and Codex (config backed up first)
-pnpm hooks status      # installed? receiving?
-pnpm hooks uninstall   # removes exactly what install added
+npx behind-everything hooks install     # adds one background PermissionRequest hook to Claude Code and Codex (config backed up first)
+npx behind-everything hooks status      # installed? receiving?
+npx behind-everything hooks uninstall   # removes exactly what install added
 ```
 
 The hook only forwards the request to Behind Everything on 127.0.0.1. It never answers a prompt, never blocks, prints
@@ -105,6 +105,26 @@ pnpm test:local     # drift check: parses your real Claude Code, Codex and Copil
 ```
 
 README screenshots come from the synthetic test session: `BE_SCREENSHOTS=1 pnpm test:e2e`.
+
+### Product site
+
+The website lives in `site/` and reuses the app's own renderer, mascots and theme: its hero is the real 3D world
+playing a scripted session.
+
+```sh
+pnpm site:dev       # http://localhost:5174/Behind_Everything-/
+pnpm site:build     # into dist-site/ (SITE_BASE=/ for a root domain)
+pnpm test:site      # browser tests against the build
+BE_SITE_SHOTS=1 pnpm test:e2e e2e/site-shots.e2e.ts   # regenerate the feature screenshots from the app
+pnpm site:assets    # regenerate the hero poster and the social card (after site:build)
+```
+
+Pushing to `main` deploys it to GitHub Pages.
+
+### Releasing
+
+Bump `version` in package.json, then `git tag vX.Y.Z && git push --tags`. The release workflow checks, builds and
+publishes to npm with provenance (it needs an `NPM_TOKEN` repository secret) and creates the GitHub release.
 
 ## Contributing
 

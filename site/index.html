@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Behind Everything: see what your AI coding agent is actually doing</title>
+    <meta name="description" content="A live, local-first 3D view of Claude Code, Codex and GitHub Copilot CLI sessions: every file read, edit, command, test and approval. One command, no setup, nothing leaves your machine." />
+    <meta name="theme-color" content="#1f7f8c" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Behind Everything" />
+    <meta property="og:description" content="See what your AI coding agent is actually doing. A live 3D workspace for Claude Code, Codex and GitHub Copilot CLI, running entirely on your machine." />
+    <meta property="og:image" content="https://git-me-harish.github.io/Behind_Everything-/og.png" />
+    <meta property="og:url" content="https://git-me-harish.github.io/Behind_Everything-/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://git-me-harish.github.io/Behind_Everything-/" />
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Behind Everything","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://www.apache.org/licenses/LICENSE-2.0","url":"https://git-me-harish.github.io/Behind_Everything-/","codeRepository":"https://github.com/Git-me-Harish/Behind_Everything-","description":"A live, local-first 3D view of what AI coding agents actually do."}
+    </script>
+    <!-- Resolve the theme before first paint so there is no flash. -->
+    <script>
+      try { var t = localStorage.getItem('be.theme'); document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript><p style="padding:24px;font-family:system-ui">Behind Everything: run <code>npx behind-everything</code> to see what your AI coding agent is doing. Source: https://github.com/Git-me-Harish/Behind_Everything-</p></noscript>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

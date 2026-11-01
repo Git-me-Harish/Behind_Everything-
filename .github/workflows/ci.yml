@@ -64,3 +64,59 @@ jobs:
           name: playwright-report-${{ matrix.browser }}
           path: test-results/
           retention-days: 7
+
+  site:
+    name: site (ubuntu, ${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - run: pnpm site:build
+      - run: pnpm test:site
+        env:
+          PW_BROWSER: ${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: site-report-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+  package:
+    name: package (npx from the packed tarball)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: npm pack --pack-destination "$RUNNER_TEMP"
+      # What a new user runs, from an empty folder: the server must come up and serve the app.
+      - name: npx behind-everything
+        run: |
+          cd "$(mktemp -d)"
+          mkdir -p logs/claude logs/codex logs/copilot data
+          CLAUDE_CONFIG_DIR=$PWD/logs/claude CODEX_HOME=$PWD/logs/codex COPILOT_HOME=$PWD/logs/copilot BE_HOME=$PWD/data \
+            npx --yes --package "$(ls "$RUNNER_TEMP"/behind-everything-*.tgz)" behind-everything --port 47977 --no-open --quiet &
+          for i in $(seq 1 120); do curl -sf http://127.0.0.1:47977/api/health > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:47977/api/health
+          curl -sf http://127.0.0.1:47977/ | grep -q '<title>Behind Everything</title>'
+          npx --yes --package "$(ls "$RUNNER_TEMP"/behind-everything-*.tgz)" behind-everything hooks --help | grep -q 'hooks <install'

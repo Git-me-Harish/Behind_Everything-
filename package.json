@@ -1,25 +1,54 @@
 {
   "name": "behind-everything",
   "version": "0.1.0",
-  "description": "Live, local-first visualizer of what AI coding agents actually do.",
+  "description": "See what your AI coding agent is actually doing: a live, local-first 3D view of Claude Code, Codex and GitHub Copilot CLI sessions.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "copilot",
+    "ai-agents",
+    "observability",
+    "visualizer",
+    "developer-tools",
+    "local-first"
+  ],
+  "homepage": "https://git-me-harish.github.io/Behind_Everything-/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Git-me-Harish/Behind_Everything-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Git-me-Harish/Behind_Everything-/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "behind-everything": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "start": "pnpm build:web && tsx src/cli.ts",
     "dev": "tsx scripts/dev.ts",
     "build": "tsc -p tsconfig.build.json && pnpm build:web",
     "build:web": "vite build --config web/vite.config.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p test/web && tsc --noEmit -p e2e",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p test/web && tsc --noEmit -p e2e && tsc --noEmit -p site",
     "test": "vitest run",
     "test:local": "BE_LOCAL_TRANSCRIPTS=1 vitest run test/local-transcripts.test.ts",
     "hooks": "tsx src/cli.ts hooks",
-    "test:e2e": "pnpm build:web && playwright test"
+    "test:e2e": "pnpm build:web && playwright test",
+    "prepublishOnly": "pnpm build",
+    "site:dev": "vite --config site/vite.config.ts",
+    "site:build": "vite build --config site/vite.config.ts",
+    "site:preview": "vite preview --config site/vite.config.ts",
+    "site:assets": "tsx scripts/site-assets.ts",
+    "test:site": "playwright test --config playwright.site.config.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

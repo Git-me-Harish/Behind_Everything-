@@ -35,6 +35,11 @@ const { values, positionals } = parseArgs({
   },
 });
 
+// Node 20 is end of life and gets no prebuilt SQLite binary; it can still work, so warn rather than refuse.
+if (Number(process.versions.node.split('.')[0]) < 22) {
+  process.stderr.write(`Behind Everything is built for Node.js 22 or newer; you are on ${process.version}. If anything misbehaves, upgrade Node first.\n`);
+}
+
 if (positionals[0] === 'hooks') {
   const action = values.help ? undefined : positionals[1];
   process.exit(await runHooks(action, { claude: values.claude, codex: values.codex, port: values.port ? Number(values.port) : DEFAULT_PORT }, s => process.stdout.write(s)));

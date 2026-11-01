@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": { "allowImportingTsExtensions": true, "noEmit": true, "module": "ESNext", "moduleResolution": "Bundler" },
-  "include": [".", "../playwright.config.ts", "../test/fixtures"]
+  "include": [".", "../playwright.config.ts", "../test/fixtures", "../site/e2e", "../playwright.site.config.ts", "../scripts/site-assets.ts"]
 }

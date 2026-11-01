@@ -1,0 +1,88 @@
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --font-ui: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* Claude's mascot has dark eyes on clay in both themes. */
+  --clawd-eye: #1d1714;
+
+  --bg: #e9eff6;
+  --bg-grid: rgba(31, 127, 140, 0.06);
+  --panel: #ffffff;
+  --panel-2: #f5f8fc;
+  --panel-3: #eef3f9;
+  --line: #dde4ee;
+  --line-strong: #c9d3e0;
+  --text: #182132;
+  --text-2: #4a5568;
+  --muted: #7a8599;
+  --accent: #1f7f8c;
+  --accent-soft: #dff1f3;
+  --shadow: 0 1px 2px rgba(24, 33, 50, 0.06), 0 4px 14px rgba(24, 33, 50, 0.06);
+  --shadow-lift: 0 2px 4px rgba(24, 33, 50, 0.08), 0 12px 28px rgba(24, 33, 50, 0.12);
+
+  --ok: #1f9d74;
+  --active: #1a8fb5;
+  --warn: #d99a1e;
+  --error: #d8454f;
+  --idle: #a3adbf;
+
+  --diff-add-bg: #e6f6ee;
+  --diff-add: #146c4c;
+  --diff-del-bg: #fdecee;
+  --diff-del: #a8323c;
+  --diff-hunk: #6a4fc1;
+
+  /* Zones: tile tint / badge colour (after the reference map). */
+  --z-mission: #e1f3f5;        --z-mission-b: #1f7f8c;
+  --z-explorer: #e5eeff;       --z-explorer-b: #3b63c4;
+  --z-planning: #eee8ff;       --z-planning-b: #6a4fc1;
+  --z-implementation: #fff0df; --z-implementation-b: #b0601b;
+  --z-lab: #f3e8fb;            --z-lab-b: #7c47a8;
+  --z-repair: #fde7eb;         --z-repair-b: #b23a55;
+  --z-tooling: #e3f4e8;        --z-tooling-b: #2f7d4f;
+  --z-approval: #fff6d6;       --z-approval-b: #9a7410;
+  --z-review: #e2f5ef;         --z-review-b: #22806a;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --row-h: 36px;
+  color-scheme: light;
+}
+
+/* `data-theme` is resolved from the user's choice or the system preference in theme.ts. */
+:root[data-theme='dark'] {
+  --bg: #0d1219;
+  --bg-grid: rgba(100, 194, 204, 0.05);
+  --panel: #151c27;
+  --panel-2: #1a2230;
+  --panel-3: #202a3a;
+  --line: #263142;
+  --line-strong: #33415a;
+  --text: #e6ebf3;
+  --text-2: #b4bfd0;
+  --muted: #7f8ba0;
+  --accent: #5cc3cf;
+  --accent-soft: #15343a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.45);
+  --ok: #3cc496;
+  --active: #43b4dc;
+  --warn: #f0b440;
+  --error: #f06872;
+  --idle: #5f6b80;
+  --diff-add-bg: #12301f;
+  --diff-add: #7fdcac;
+  --diff-del-bg: #3a1a1f;
+  --diff-del: #f59aa2;
+  --diff-hunk: #b39cff;
+  --z-mission: #12292d;        --z-mission-b: #2b97a5;
+  --z-explorer: #151f36;       --z-explorer-b: #5b82e0;
+  --z-planning: #1d1832;       --z-planning-b: #8a70e0;
+  --z-implementation: #2e2214; --z-implementation-b: #d07a2c;
+  --z-lab: #251a30;            --z-lab-b: #a06ad0;
+  --z-repair: #2f171d;         --z-repair-b: #d55673;
+  --z-tooling: #13271a;        --z-tooling-b: #3f9e66;
+  --z-approval: #2c2612;       --z-approval-b: #c49a20;
+  --z-review: #122823;         --z-review-b: #2fa385;
+  color-scheme: dark;
+}
