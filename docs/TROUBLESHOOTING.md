@@ -95,11 +95,13 @@ exported again.
 
 Measured on a heavy week of history (30 sessions, 90,000 events, 56 MB of logs) with `pnpm perf`:
 
-| | Measured | Budget |
-|---|---|---|
-| Idle CPU | 0.3 % of one core | under 1 % |
-| Memory after loading | 78 MB | under 120 MB |
-| Reading that history on first start | about 15 s, briefly up to about 150 MB | |
+| | Windows 11 laptop | Linux (CI) | Budget |
+|---|---|---|---|
+| Idle CPU | 0.2 % of one core | 0.1 % | under 1 % |
+| Memory after loading | 80 MB | 109 MB | under 120 MB |
+| Reading that history on first start | about 15 s, up to about 150 MB | about 6 s, up to about 150 MB | |
+
+CI checks this budget on every change.
 
 Quiet logs are checked every 15 seconds and live ones every second; new lines normally arrive within a moment through
 the operating system's file notifications. If it uses more than this, run `doctor` and report it with the output.
