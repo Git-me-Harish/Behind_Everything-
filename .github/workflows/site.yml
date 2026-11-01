@@ -1,6 +1,8 @@
 name: Site
 
-# Publishes the product site to GitHub Pages from main.
+# Publishes the product site to GitHub Pages from main. Until Pages is switched on for the repository
+# (Settings > Pages > Source: GitHub Actions, which needs a public repository on GitHub Free), it builds the
+# site and stops with a notice instead of failing every push.
 on:
   push:
     branches: [main]
@@ -22,19 +24,33 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm site:build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Is GitHub Pages on?
+        id: pages
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Site not deployed::GitHub Pages is not enabled for this repository. Enable it under Settings > Pages (Source: GitHub Actions); on GitHub Free the repository must be public. The site was built and is fine."
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.pages.outputs.enabled == 'true'
+        uses: actions/configure-pages@v6
+      - if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist-site
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - if: steps.pages.outputs.enabled == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5
