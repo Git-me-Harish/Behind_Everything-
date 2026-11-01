@@ -115,8 +115,8 @@ jobs:
           cd "$(mktemp -d)"
           mkdir -p logs/claude logs/codex logs/copilot data
           CLAUDE_CONFIG_DIR=$PWD/logs/claude CODEX_HOME=$PWD/logs/codex COPILOT_HOME=$PWD/logs/copilot BE_HOME=$PWD/data \
-            npx --yes "$RUNNER_TEMP"/behind-everything-*.tgz --port 47977 --no-open --quiet &
+            npx --yes --package "$(ls "$RUNNER_TEMP"/behind-everything-*.tgz)" behind-everything --port 47977 --no-open --quiet &
           for i in $(seq 1 120); do curl -sf http://127.0.0.1:47977/api/health > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:47977/api/health
           curl -sf http://127.0.0.1:47977/ | grep -q '<title>Behind Everything</title>'
-          npx --yes "$RUNNER_TEMP"/behind-everything-*.tgz hooks --help | grep -q 'hooks install'
+          npx --yes --package "$(ls "$RUNNER_TEMP"/behind-everything-*.tgz)" behind-everything hooks --help | grep -q 'hooks install'
