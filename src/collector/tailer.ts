@@ -28,6 +28,8 @@ const HOT_MS = 120_000;
 const COLD_EVERY = 15;
 
 const CHUNK = 1 << 20;
+/** One read buffer for every file and every read (reads are synchronous): no fresh megabyte per read for the allocator to hoard. */
+let readBuffer: Buffer | undefined;
 const NL = 0x0a;
 
 /**
@@ -102,7 +104,7 @@ export class JsonlTailer {
     try { fd = fs.openSync(file, 'r'); } catch { return; }
     const events: CanonicalEvent[] = [];
     try {
-      const buf = Buffer.allocUnsafe(CHUNK);
+      const buf = (readBuffer ??= Buffer.allocUnsafe(CHUNK));
       while (t.offset < size) {
         const n = fs.readSync(fd, buf, 0, Math.min(CHUNK, size - t.offset), t.offset);
         if (n <= 0) break;
@@ -119,6 +121,8 @@ export class JsonlTailer {
         }
         // Keep the incomplete tail (copied: `buf` is reused on the next read).
         t.rest = Buffer.from(data.subarray(start));
+        // Hand over each megabyte's events as it is read: a long history never sits in memory all at once.
+        if (events.length) this.opts.onEvents(events.splice(0), t.parser.session);
       }
       if (t.parser.idle) events.push(...t.parser.idle());
     } finally {

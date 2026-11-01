@@ -78,12 +78,14 @@ try {
   console.log(`Read on startup: ${events.toLocaleString()} events in ${ingest.toFixed(1)} s, peak memory ${peak} MB`);
 
   // A quiet minute: nothing is being written; only the tailers' polling runs.
-  await sleep(Number(process.env.PERF_SETTLE_S ?? 10) * 1000);
+  // Let the end of loading settle (database checkpoint, garbage collection) before measuring the quiet.
+  await sleep(Number(process.env.PERF_SETTLE_S ?? 20) * 1000);
   const a = await get('/api/health');
   await sleep(IDLE_S * 1000);
   const z = await get('/api/health');
   const cpu = ((z.process.cpu_ms - a.process.cpu_ms) / (IDLE_S * 1000)) * 100;
   const rss = z.process.rss_mb;
+  console.log(`  (JavaScript heap: ${z.process.heap_mb} MB in use of ${z.process.heap_total_mb} MB reserved; external ${z.process.external_mb} MB)`);
   const row = (name: string, value: string, budget: string, ok: boolean) => console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name.padEnd(14)} ${value.padStart(9)}   budget ${budget}`);
   console.log(`Idle for ${IDLE_S} s:`);
   row('CPU (one core)', `${cpu.toFixed(2)} %`, `< ${BUDGET.idleCpuPct} %`, cpu < BUDGET.idleCpuPct);

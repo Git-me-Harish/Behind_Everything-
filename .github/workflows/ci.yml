@@ -138,4 +138,4 @@ jobs:
       # 30 sessions, about 90,000 events: idle CPU under 1 % of a core and memory under 120 MB, or the job fails.
       - run: pnpm perf
         env:
-          PERF_IDLE_S: '30'
+          PERF_IDLE_S: '60'

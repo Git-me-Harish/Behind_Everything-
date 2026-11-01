@@ -77,7 +77,7 @@ export async function startCollector(o: CollectorOptions = {}) {
     health: () => ({
       ok: true, started_at: startedAt, version: VERSION, node: process.version,
       // Its own footprint, for `doctor` and the performance budget checks.
-      process: { rss_mb: Math.round(process.memoryUsage().rss / 1e5) / 10, cpu_ms: Math.round((process.cpuUsage().user + process.cpuUsage().system) / 1000), uptime_s: Math.round(process.uptime()) },
+      process: { rss_mb: Math.round(process.memoryUsage().rss / 1e5) / 10, heap_mb: Math.round(process.memoryUsage().heapUsed / 1e5) / 10, heap_total_mb: Math.round(process.memoryUsage().heapTotal / 1e5) / 10, external_mb: Math.round(process.memoryUsage().external / 1e5) / 10, cpu_ms: Math.round((process.cpuUsage().user + process.cpuUsage().system) / 1000), uptime_s: Math.round(process.uptime()) },
       data_dir: path.dirname(o.dbPath ?? path.join(DATA_DIR, 'events.sqlite')),
       sources: sources.map(src => {
         const h = hookStatus(src.assistant);
