@@ -49,7 +49,7 @@ test('is a drawer on phones: opens over the page, closes on a tap outside, Esc o
   await expect(sessions(page)).toBeHidden();
 
   await toggle.tap();
-  await sessions(page).getByRole('button').first().tap();
+  await sessions(page).locator('.session').first().tap();
   await expect(sessions(page)).toBeHidden();
   await context.close();
 });

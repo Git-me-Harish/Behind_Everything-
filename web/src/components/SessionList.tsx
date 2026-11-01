@@ -1,7 +1,7 @@
-import { Hand, Search } from 'lucide-react';
+import { FolderOpen, Hand, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { compact, isLive, project, shortAgo } from '../lib/format.ts';
-import { assistantMeta } from '../lib/meta.ts';
+import { assistantMeta, isShared } from '../lib/meta.ts';
 import { store, useApp, useNow } from '../lib/store.ts';
 import type { SessionRow } from '../lib/types.ts';
 import { AssistantMark } from './ui.tsx';
@@ -21,7 +21,7 @@ function group(ts: string, now: number): string {
   return 'Earlier';
 }
 
-export function SessionList({ open, onPick }: { open: boolean; onPick: () => void }) {
+export function SessionList({ open, onPick, onOpenFile }: { open: boolean; onPick: () => void; onOpenFile: () => void }) {
   const sessions = useApp(s => s.sessions);
   const loaded = useApp(s => s.sessionsLoaded);
   const current = useApp(s => s.sessionId);
@@ -50,12 +50,13 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
           <Search size={14} aria-hidden />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter sessions" aria-label="Filter sessions" />
         </label>
+        <button className="link open-shared" onClick={onOpenFile}><FolderOpen size={13} aria-hidden /> Open a shared session</button>
       </div>
       <div className="session-list">
         {loaded && sessions.length === 0 && (
           <div className="empty">
             <h2>No sessions yet</h2>
-            <p>Start Claude Code, Codex or Copilot CLI in any project. Its sessions appear here automatically.</p>
+            <p>They appear here as soon as you start one.</p>
           </div>
         )}
         {groups.map(g => (
@@ -83,7 +84,7 @@ export function SessionList({ open, onPick }: { open: boolean; onPick: () => voi
 }
 
 function SessionItem({ s, current, now, onPick }: { s: SessionRow; current: boolean; now: number; onPick: () => void }) {
-  const live = isLive(s.last_ts, now);
+  const live = !isShared(s.id) && isLive(s.last_ts, now);
   const waiting = s.waiting ?? [];
   const branch = s.git_branch && !DEFAULT_BRANCHES.has(s.git_branch) ? s.git_branch : undefined;
   const state = waiting.length ? 'waiting' : live ? 'live' : 'idle';
@@ -99,7 +100,7 @@ function SessionItem({ s, current, now, onPick }: { s: SessionRow; current: bool
       <span className="when">{live ? 'Live' : shortAgo(s.last_ts, now)}</span>
       {waiting.length
         ? <span className="sub"><span className="waiting-pill"><Hand size={11} aria-hidden />Waiting for you{waiting.length > 1 ? ` · ${waiting.length}` : ''}</span></span>
-        : <span className="sub truncate">{project(s.cwd)}{branch && <span className="branch"> · {branch}</span>}</span>}
+        : <span className="sub truncate">{isShared(s.id) && <span className="shared-mark">Shared · </span>}{project(s.cwd)}{branch && <span className="branch"> · {branch}</span>}</span>}
     </button>
   );
 }

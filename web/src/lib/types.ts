@@ -14,7 +14,7 @@ export interface HookHealth { installed: boolean; port_matches: boolean; events:
 export interface Health {
   ok: boolean;
   started_at: string;
-  sources: Array<{ assistant: string; capture: string; root: string; files: number; watching: boolean; hooks?: HookHealth }>;
+  sources: Array<{ assistant: string; capture: string; root: string; exists?: boolean; files: number; watching: boolean; hooks?: HookHealth }>;
 }
 
 export interface Evidence { file: string; line: number; record: unknown }

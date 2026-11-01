@@ -39,10 +39,15 @@ export class Store {
    * Inserts events. An event already stored keeps its sequence number but takes the new content, so
    * re-reading a transcript with an improved adapter upgrades history. Returns only the new events.
    */
+  /** Prepared once: inserting is the hot path while a history is read. */
+  private stmts?: { insert: Database.Statement; update: Database.Statement; bump: Database.Statement };
+
   insert(events: CanonicalEvent[]): StoredEvent[] {
-    const insert = this.db.prepare('INSERT OR IGNORE INTO events (id, session_id, seq, ts, kind, json, lite) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const update = this.db.prepare('UPDATE events SET ts = ?, kind = ?, json = ?, lite = NULL WHERE id = ? AND json <> ?');
-    const bump = this.db.prepare('UPDATE sessions SET event_count = event_count + ? WHERE id = ?');
+    const { insert, update, bump } = (this.stmts ??= {
+      insert: this.db.prepare('INSERT OR IGNORE INTO events (id, session_id, seq, ts, kind, json, lite) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+      update: this.db.prepare('UPDATE events SET ts = ?, kind = ?, json = ?, lite = NULL WHERE id = ? AND json <> ?'),
+      bump: this.db.prepare('UPDATE sessions SET event_count = event_count + ? WHERE id = ?'),
+    });
     const added: StoredEvent[] = [];
     this.db.transaction(() => {
       const counts = new Map<string, number>();
@@ -114,6 +119,13 @@ export class Store {
     this.db.prepare('DELETE FROM sessions WHERE last_ts < ?').run(cutoff);
     this.seqs.clear();
     return n;
+  }
+
+  /** Removes a session and its events (the API allows this for shared sessions only). */
+  deleteSession(id: string): boolean {
+    this.db.prepare('DELETE FROM events WHERE session_id = ?').run(id);
+    this.seqs.delete(id);
+    return this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0;
   }
 
   close() { this.db.close(); }

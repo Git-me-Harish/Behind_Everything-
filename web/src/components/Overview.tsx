@@ -1,12 +1,12 @@
 import {
   CircleAlert, ClipboardList, Code2, FlaskConical, FolderSearch, GitBranch, Info, PackageCheck, Radar, ShieldCheck,
-  SquareTerminal, TriangleAlert, Wrench, type LucideIcon, Clock, Cpu, Folder,
+  SquareTerminal, TriangleAlert, Wrench, type LucideIcon, Clock, Cpu, Folder, Share2, Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { SessionState, ZoneId, ZoneStatus } from '../../../src/core/state.ts';
 import { activityForEvent } from '../lib/activities.ts';
 import { ago, clock, compact, dateTime, duration, isLive, project } from '../lib/format.ts';
-import { assistantMeta, PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
+import { assistantMeta, isShared, PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
 import { store, useApp, useAssistant, useNow } from '../lib/store.ts';
 import { Avatar, SourceTag, agentColor, zoneVars } from './ui.tsx';
 
@@ -31,7 +31,8 @@ export function SessionHeader({ view }: { view: SessionState }) {
   const replaying = useApp(s => s.cursor !== null);
   const now = useNow(5000);
   if (!session) return null;
-  const live = !replaying && isLive(session.last_ts, now);
+  const shared = isShared(session.id);
+  const live = !shared && !replaying && isLive(session.last_ts, now);
   const changed = Object.values(view.files).filter(f => f.edits > 0).length;
   const span = view.started_at && view.last_ts ? Date.parse(view.last_ts) - Date.parse(view.started_at) : undefined;
   return (
@@ -44,6 +45,11 @@ export function SessionHeader({ view }: { view: SessionState }) {
           {session.model && <span><Cpu size={13} />{session.model}</span>}
           <span title={session.started_at ? dateTime(session.started_at) : ''}><Clock size={13} />{span !== undefined ? duration(span) : ''} · {replaying ? `replaying at ${view.last_ts ? clock(view.last_ts) : 'the start'}` : live ? 'live now' : `last active ${ago(session.last_ts, now)}`}</span>
           {session.version && <span className="muted">{assistantMeta(session.assistant).name} {session.version}</span>}
+        </div>
+        <div className="header-actions">
+          {shared && <span className="tag shared" title="Opened from a file someone shared. Read-only.">Shared session</span>}
+          <button className="btn small" onClick={() => store.toggleShare(true)}><Share2 size={14} aria-hidden /> Share</button>
+          {shared && <button className="btn small ghost" onClick={() => void store.removeShared(session.id)}><Trash2 size={14} aria-hidden /> Remove</button>}
         </div>
       </div>
       <div className="stat-row">

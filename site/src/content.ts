@@ -103,7 +103,8 @@ export const FAQ = [
   { q: 'What do I need?', a: 'Node.js 22 or newer on Windows, macOS or Linux, and a recent browser with WebGL 2 for the 3D view. Without WebGL it shows a flat board instead.' },
   { q: 'What is the optional hook?', a: 'Claude Code and Codex only log an approval after you answer it. Run "npx behind-everything hooks install" to see their prompts while they wait. It backs up your config first, and "hooks uninstall" removes exactly what it added.' },
   { q: 'What happens when an assistant changes its log format?', a: 'Records it does not recognise are counted and shown in the coverage panel instead of silently dropped, so gaps are visible and the adapter can be updated.' },
-  { q: 'Can my team use it?', a: 'Today it is a personal, local tool: each person runs it on their own machine. Sharing sessions with a team is on the roadmap.' },
+  { q: 'Can my team use it?', a: 'Each person runs it on their own machine. To show someone a session, use Share: it saves a file with secrets redacted and paths shortened, and you choose whether prompts, output and diffs go in. They open it in their own Behind Everything with the full map, timeline and replay.' },
+  { q: 'Something is not working. Where do I start?', a: "Run \"npx behind-everything doctor\". It checks Node.js, storage, the port, each assistant's logs and the hook, and tells you how to fix anything that is off. The troubleshooting guide covers the rest." },
   { q: 'How do I stop or remove it?', a: 'Press Ctrl+C to stop it. To remove its data, delete the ~/.behind-everything folder. If you installed the hook, run "npx behind-everything hooks uninstall" first.' },
 ];
 

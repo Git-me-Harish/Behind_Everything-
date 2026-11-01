@@ -128,6 +128,25 @@ the payload follows the documented schema and the bridge is tested with the inst
 The UI marks sessions waiting for you in the list, counts them in the tab title, and can send a desktop notification
 (opt-in bell in the top bar), for approvals from the hook bridge or Copilot's log, and questions from any assistant.
 
+## Shared sessions
+
+A session can be saved as a file (Share in the session header) and opened by anyone in their own Behind Everything
+(Open a shared session, a dropped file, or `behind-everything open <file>`).
+
+| | In the file |
+|---|---|
+| Events (the whole timeline, map and replay) | Yes |
+| Secrets | Redacted when captured, and again when exported |
+| Your home folder | Shortened to `~` |
+| The project folder | Only its name |
+| Prompts and assistant messages, command output, file diffs | Your choice, shown before you download |
+| The model's reasoning | Never captured |
+| Raw log records, log file locations | Never |
+
+Shared sessions are read-only, marked "Shared", and removable; they never mix with live ones (their ids are prefixed
+`shared:`). The format is versioned (`behind-everything/session` v1): a file from a newer version says so instead of
+opening wrong.
+
 ## Copilot Chat in VS Code
 
 Not implemented yet. VS Code's own chat history (workspace storage) is a different format; sessions where VS Code hosts

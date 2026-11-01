@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { applyEvent, initialState, type SessionState, type ZoneId } from '../../../src/core/state.ts';
 import { buildActivities, emptyFilter, type Activity, type Filter } from './activities.ts';
 import { playbackDelay, ReplayIndex } from './replay.ts';
+import type { ShareBundle, ShareOptions } from '../../../src/core/share.ts';
 import type { Health, SessionRow, StoredEvent } from './types.ts';
 
 export type Connection = 'connecting' | 'live' | 'reconnecting' | 'offline';
@@ -26,6 +27,9 @@ export interface AppState {
   filter: Filter;
   showCoverage: boolean;
   showShortcuts: boolean;
+  showShare: boolean;
+  /** A short message about something the user just did (import, export, remove). */
+  notice?: { tone: 'ok' | 'error'; text: string };
   /** The workspace map fills the window. */
   expanded: boolean;
   /** Sessions list docked beside the page (wide screens; remembered). */
@@ -48,7 +52,7 @@ class Store {
   state: AppState = {
     connection: 'connecting', sessions: [], sessionsLoaded: false, events: [], activities: [], loading: false,
     live: initialState(''), cursor: null, playing: false, speed: 4, selection: null, filter: emptyFilter(),
-    showCoverage: false, showShortcuts: false, expanded: false, sidebar: readSidebar(), drawer: false,
+    showCoverage: false, showShortcuts: false, showShare: false, expanded: false, sidebar: readSidebar(), drawer: false,
   };
   /** performance.now() when the newest live events arrived; the world measures event-to-pixel latency from it. */
   arrivedAt = 0;
@@ -272,6 +276,63 @@ class Store {
     this.set({ showCoverage: show });
   }
   toggleShortcuts(show = !this.state.showShortcuts) { this.set({ showShortcuts: show }); }
+  toggleShare(show = !this.state.showShare) { this.set({ showShare: show }); }
+
+  // ── sharing ────────────────────────────────────────────────────────────────
+
+  private noticeTimer = 0;
+  notify(tone: 'ok' | 'error', text: string) {
+    window.clearTimeout(this.noticeTimer);
+    this.set({ notice: { tone, text } });
+    this.noticeTimer = window.setTimeout(() => this.set({ notice: undefined }), tone === 'error' ? 8000 : 4000);
+  }
+
+  /** The open session as a shareable file, with what the user chose to leave out. */
+  exportSession(options: ShareOptions): Promise<ShareBundle> {
+    const q = new URLSearchParams({ prompts: options.prompts ? '1' : '0', outputs: options.outputs ? '1' : '0', diffs: options.diffs ? '1' : '0' });
+    return getJson<ShareBundle>(`/api/sessions/${encodeURIComponent(this.state.sessionId!)}/export?${q}`);
+  }
+
+  /** Adds a shared session file (picked, dropped, or bundled) and opens it. Returns its id, or undefined on failure. */
+  async importSession(text: string, label = 'the file'): Promise<string | undefined> {
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { this.notify('error', `${label} is not a session file (it is not JSON).`); return; }
+    const r = await fetch('/api/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await r.json().catch(() => ({})) as { id?: string; error?: string };
+    if (!r.ok || !res.id) { this.notify('error', res.error ?? `Could not open ${label} (${r.status}).`); return; }
+    await this.refreshSessions();
+    void this.selectSession(res.id);
+    return res.id;
+  }
+
+  async importFile(file: File) {
+    if (await this.importSession(await file.text(), file.name)) this.notify('ok', `Opened ${file.name}`);
+  }
+
+  /** The three bundled demo sessions (Claude Code, Codex, Copilot), synthetic, to explore before a real one exists. */
+  async openDemo() {
+    let first: string | undefined;
+    for (const name of ['demo-claude-code', 'demo-codex', 'demo-copilot-cli']) {
+      const r = await fetch(`./${name}.json`);
+      if (!r.ok) continue;
+      const id = await this.importSession(await r.text(), 'the demo');
+      first ??= id;
+    }
+    if (first) {
+      void this.selectSession(first);
+      this.notify('ok', 'Opened three demo sessions. Remove them from the session header when you are done.');
+    }
+  }
+
+  async removeShared(id: string) {
+    const r = await fetch(`/api/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!r.ok) return this.notify('error', 'Could not remove this session.');
+    await this.refreshSessions();
+    const next = this.state.sessions[0]?.id;
+    if (next) void this.selectSession(next);
+    else this.set({ sessionId: undefined, events: [], activities: [] });
+    this.notify('ok', 'Removed the shared session.');
+  }
   toggleExpanded(on = !this.state.expanded) { this.set({ expanded: on }); }
 
   /** Shows or hides the sessions list: collapses the column on wide screens, opens the drawer on narrow ones. */

@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DEFAULT_PORT, startCollector } from './collector/index.js';
 import type { StoredEvent } from './collector/store.js';
+import { runDoctor } from './doctor.js';
 import { runHooks } from './hooks/cli.js';
 
 const HELP = `behind-everything: see what your AI coding agent is actually doing
 
 Usage: behind-everything [options]
        behind-everything hooks <install | uninstall | status>   (see: hooks --help)
+       behind-everything doctor      Check the setup and explain anything that is wrong
+       behind-everything open <file> Open a session someone shared with you
 
   -p, --port <n>       Port on 127.0.0.1 (default ${DEFAULT_PORT})
       --since <days>   Load sessions active in the last N days (default 7)
@@ -38,6 +41,10 @@ const { values, positionals } = parseArgs({
 // Node 20 is end of life and gets no prebuilt SQLite binary; it can still work, so warn rather than refuse.
 if (Number(process.versions.node.split('.')[0]) < 22) {
   process.stderr.write(`Behind Everything is built for Node.js 22 or newer; you are on ${process.version}. If anything misbehaves, upgrade Node first.\n`);
+}
+
+if (positionals[0] === 'doctor') {
+  process.exit(await runDoctor(values.port ? Number(values.port) : DEFAULT_PORT, s => process.stdout.write(s)));
 }
 
 if (positionals[0] === 'hooks') {
@@ -80,6 +87,36 @@ function openBrowser(url: string) {
 }
 
 const port = values.port ? Number(values.port) : DEFAULT_PORT;
+
+/** `open <file>`: adds a shared session to the running collector (or the one about to start) and shows it. */
+async function openShared(file: string): Promise<string | undefined> {
+  let text: string;
+  try { text = fs.readFileSync(path.resolve(file), 'utf8'); } catch (err) {
+    process.stderr.write(`Cannot read ${file}: ${(err as Error).message}\n`);
+    process.exit(1);
+  }
+  const res = await fetch(`http://127.0.0.1:${port}/api/import`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: text }).catch(() => undefined);
+  if (!res) return undefined;
+  const body = await res.json().catch(() => ({})) as { id?: string; error?: string };
+  if (!res.ok || !body.id) {
+    process.stderr.write(`Could not open ${file}: ${body.error ?? res.status}\n`);
+    process.exit(1);
+  }
+  return `http://127.0.0.1:${port}/?session=${encodeURIComponent(body.id)}`;
+}
+
+const sharedFile = positionals[0] === 'open' ? positionals[1] : undefined;
+if (positionals[0] === 'open') {
+  if (!sharedFile) { process.stderr.write('Usage: behind-everything open <file>\n'); process.exit(1); }
+  // Already running: hand it the file and show it.
+  const url = await openShared(sharedFile);
+  if (url) {
+    process.stdout.write(`Opened in the running Behind Everything: ${url}\n`);
+    if (!values['no-open']) openBrowser(url);
+    process.exit(0);
+  }
+}
+
 try {
   const c = await startCollector({
     port,
@@ -94,7 +131,9 @@ try {
   process.stdout.write(`Watching Claude Code, Codex and Copilot logs · ${sessions.length} session(s) loaded${c.pruned ? ` · pruned ${c.pruned} old events` : ''}\n`);
   if (webRoot) {
     process.stdout.write(`Open ${paint(36, c.url)} to see it live\n`);
-    if (!values['no-open'] && !process.env.BE_DEV_ORIGIN) openBrowser(c.url);
+    const shown = sharedFile ? await openShared(sharedFile) : undefined;
+    if (shown) process.stdout.write(`Opened ${sharedFile}: ${shown}\n`);
+    if (!values['no-open'] && !process.env.BE_DEV_ORIGIN) openBrowser(shown ?? c.url);
   } else {
     process.stdout.write(paint(33, "UI not built yet. Run 'pnpm build:web'. The API works meanwhile.\n"));
   }

@@ -14,6 +14,7 @@ Every signal is labelled **observed**, **inferred** or **unavailable**. Nothing 
 - Product brief: [docs/agent_activity_visualizer_product_concept.docx](docs/agent_activity_visualizer_product_concept.docx)
 - Architecture & roadmap: [docs/PLAN.md](docs/PLAN.md)
 - What we can and can't see: [docs/CAPABILITIES.md](docs/CAPABILITIES.md)
+- Something not working: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 ## Quick start
 
@@ -64,6 +65,24 @@ The hook only forwards the request to Behind Everything on 127.0.0.1. It never a
 nothing, and does nothing when Behind Everything is not running. Codex runs a new hook only after you trust it
 (`/hooks` in the Codex CLI). Details: [docs/CAPABILITIES.md](docs/CAPABILITIES.md#hook-bridge-opt-in-claude-code-and-codex).
 
+### Share a session
+
+**Share** in the session header saves the session as a file anyone can open in their own Behind Everything, with the
+3D map, timeline and replay. Before you download, it shows what the file holds: secrets are redacted, your home folder
+becomes `~` and the project folder only its name, and you choose whether prompts, command output and diffs go in. The
+model's reasoning, raw log records and file locations on your machine never do. To open one: **Open a shared session**
+in the sessions list, drop the file on the window, or `npx behind-everything open <file>`.
+
+### Check your setup
+
+```sh
+npx behind-everything doctor
+```
+
+Checks Node.js, storage, the port, each assistant's logs and the hook, and says how to fix anything that is off.
+More in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). First run with no sessions yet? The welcome screen offers
+three demo sessions to explore.
+
 ### Keyboard
 
 `j`/`k` next/previous · `Esc` close · `/` search · `f` failures only · `Space` play/pause · `[` `]` step · `l` live · `s` sessions list · `?` help
@@ -101,6 +120,7 @@ pnpm dev            # collector + Vite with hot reload on http://localhost:5173
 pnpm typecheck
 pnpm test           # unit + integration tests on synthetic fixtures
 pnpm test:e2e       # browser tests (PW_CHANNEL=msedge or chrome uses an installed browser)
+pnpm perf           # performance budget on a heavy synthetic history (after pnpm build)
 pnpm test:local     # drift check: parses your real Claude Code, Codex and Copilot logs (never leaves your machine)
 ```
 

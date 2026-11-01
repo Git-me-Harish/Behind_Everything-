@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createClaudeParser } from '../adapters/claude-code/parse.js';
@@ -7,6 +8,7 @@ import { CODEX_SESSIONS, isRollout, listRollouts } from '../adapters/codex/disco
 import { createCopilotParser } from '../adapters/copilot-cli/parse.js';
 import { COPILOT_SESSIONS, isSessionLog, listSessionLogs } from '../adapters/copilot-cli/discover.js';
 import type { Assistant, CanonicalEvent, SessionInfo } from '../core/schema.js';
+import { exportSession, importBundle } from '../core/share.js';
 import { WaitingTracker } from '../core/waiting.js';
 import { HOOK_ASSISTANTS, status, type HookAssistant } from '../hooks/install.js';
 import { createBridge } from './bridge.js';
@@ -15,6 +17,10 @@ import { Store, type StoredEvent } from './store.js';
 import { JsonlTailer, type LineParser } from './tailer.js';
 
 export const DEFAULT_PORT = 47821;
+/** The running version, from package.json (two levels up from src/collector and dist/collector alike). */
+export const VERSION: string = (() => {
+  try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version; } catch { return 'dev'; }
+})();
 export const DATA_DIR = process.env.BE_HOME ?? path.join(os.homedir(), '.behind-everything');
 
 export interface CollectorOptions {
@@ -46,17 +52,37 @@ export async function startCollector(o: CollectorOptions = {}) {
     port, webRoot: o.webRoot, devOrigins: o.devOrigins,
     events: store,
     sessions: () => store.sessions().map(s => ({ ...s, waiting: waiting.list(s.id) })),
+    share: {
+      export: (id, options) => {
+        const s = store.session(id);
+        return s && exportSession(s, store.events(id), options, { home: os.homedir(), appVersion: VERSION });
+      },
+      import: body => {
+        const { session, events } = importBundle(body);
+        onEvents(events, session);
+        sessionsDirty = true;
+        return session.id;
+      },
+      remove: id => {
+        const removed = store.deleteSession(id);
+        if (removed) sessionsDirty = true;
+        return removed;
+      },
+    },
     hook: (assistant, body) => {
       if (!(HOOK_ASSISTANTS as string[]).includes(assistant)) return false;
       bridge.ingest(assistant as HookAssistant, body);
       return true;
     },
     health: () => ({
-      ok: true, started_at: startedAt,
+      ok: true, started_at: startedAt, version: VERSION, node: process.version,
+      // Its own footprint, for `doctor` and the performance budget checks.
+      process: { rss_mb: Math.round(process.memoryUsage().rss / 1e5) / 10, heap_mb: Math.round(process.memoryUsage().heapUsed / 1e5) / 10, heap_total_mb: Math.round(process.memoryUsage().heapTotal / 1e5) / 10, external_mb: Math.round(process.memoryUsage().external / 1e5) / 10, cpu_ms: Math.round((process.cpuUsage().user + process.cpuUsage().system) / 1000), uptime_s: Math.round(process.uptime()) },
+      data_dir: path.dirname(o.dbPath ?? path.join(DATA_DIR, 'events.sqlite')),
       sources: sources.map(src => {
         const h = hookStatus(src.assistant);
         return {
-          assistant: src.assistant, capture: 'log', root: src.root, files: src.tailer.tracked, watching: true,
+          assistant: src.assistant, capture: 'log', root: src.root, exists: fs.existsSync(src.root), files: src.tailer.tracked, watching: true,
           ...(h ? { hooks: { installed: h.installed, port_matches: !h.installed || h.port === port, ...bridge.stats()[src.assistant as HookAssistant] } } : {}),
         };
       }),
