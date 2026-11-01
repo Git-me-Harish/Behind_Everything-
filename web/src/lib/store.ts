@@ -58,6 +58,8 @@ class Store {
   private retry = 0;
   private playTimer?: number;
   private loadToken = 0;
+  /** Bumped by every session list the server pushes: a fetch that started before one is out of date. */
+  private sessionsVersion = 0;
   private pending: StoredEvent[] = [];
   private frame?: number;
 
@@ -90,8 +92,11 @@ class Store {
   }
 
   private async refreshSessions() {
+    const version = this.sessionsVersion;
     try {
       const sessions = await getJson<SessionRow[]>('/api/sessions');
+      // A push arrived while this was in flight: it is newer (it may carry what is waiting for you), keep it.
+      if (version !== this.sessionsVersion) return void this.set({ sessionsLoaded: true });
       this.set({ sessions, sessionsLoaded: true });
     } catch {
       this.set({ sessionsLoaded: true, connection: 'offline' });
@@ -115,7 +120,10 @@ class Store {
     };
     ws.onmessage = m => {
       const msg = JSON.parse(String(m.data));
-      if (msg.type === 'sessions') this.set({ sessions: msg.sessions });
+      if (msg.type === 'sessions') {
+        this.sessionsVersion++;
+        this.set({ sessions: msg.sessions });
+      }
       if (msg.type === 'events') this.receive(msg.events as StoredEvent[]);
     };
     ws.onclose = () => {
