@@ -116,6 +116,13 @@ export class Store {
     return n;
   }
 
+  /** Removes a session and its events (the API allows this for shared sessions only). */
+  deleteSession(id: string): boolean {
+    this.db.prepare('DELETE FROM events WHERE session_id = ?').run(id);
+    this.seqs.delete(id);
+    return this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0;
+  }
+
   close() { this.db.close(); }
 
   private nextSeq(session_id: string): number {

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { redactValue } from '../core/redact.js';
 import { liteEvent } from './lite.js';
+import { isShared, type ShareBundle, type ShareOptions } from '../core/share.js';
 import type { SessionRow, Store, StoredEvent } from './store.js';
 
 export interface ServerOptions {
@@ -14,6 +15,12 @@ export interface ServerOptions {
   sessions: () => SessionRow[];
   /** A hook call forwarded by an assistant; false if the assistant has no hook bridge. */
   hook: (assistant: string, body: Record<string, unknown>) => boolean;
+  /** Sharing: a session as a file, a shared file as a read-only session, and removing one. */
+  share: {
+    export(id: string, options: ShareOptions): ShareBundle | undefined;
+    import(body: unknown): string;
+    remove(id: string): boolean;
+  };
   /** Built web client to serve at `/`, if present. */
   webRoot?: string;
   /** Extra origins allowed to connect (the Vite dev server in development). */
@@ -41,6 +48,22 @@ export function createServer(opts: ServerOptions) {
     try {
       const hook = /^\/api\/hooks\/([\w-]+)$/.exec(url.pathname);
       if (hook && req.method === 'POST') return receiveHook(req, res, hook[1]!, opts.hook);
+      if (url.pathname === '/api/import' && req.method === 'POST') {
+        return readJson(req, res, MAX_IMPORT_BODY, body => {
+          try { send(res, 201, { id: opts.share.import(body) }); } catch (err) { send(res, 400, { error: (err as Error).message }); }
+        });
+      }
+      const shared = /^\/api\/sessions\/([^/]+)$/.exec(url.pathname);
+      if (shared && req.method === 'DELETE') {
+        const id = decodeURIComponent(shared[1]!);
+        return isShared(id) && opts.share.remove(id) ? send(res, 200, { removed: id }) : send(res, 404, { error: 'only shared sessions can be removed' });
+      }
+      const exp = /^\/api\/sessions\/([^/]+)\/export$/.exec(url.pathname);
+      if (exp && req.method === 'GET') {
+        const flag = (k: string) => url.searchParams.get(k) !== '0';
+        const bundle = opts.share.export(decodeURIComponent(exp[1]!), { prompts: flag('prompts'), outputs: flag('outputs'), diffs: flag('diffs') });
+        return bundle ? send(res, 200, bundle) : send(res, 404, { error: 'unknown session' });
+      }
       if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
       if (url.pathname === '/api/health') return send(res, 200, opts.health());
       if (url.pathname === '/api/sessions') return send(res, 200, opts.sessions());
@@ -58,7 +81,7 @@ export function createServer(opts: ServerOptions) {
       const ev = /^\/api\/events\/([^/]+)\/evidence$/.exec(url.pathname);
       if (ev) return evidence(res, opts.events.event(decodeURIComponent(ev[1]!)));
       if (opts.webRoot) return serveStatic(res, opts.webRoot, url.pathname);
-      return send(res, 200, { name: 'behind-everything', api: ['/api/health', '/api/sessions', '/api/sessions/:id/events', '/api/events/:id', '/api/events/:id/evidence', '/ws'] });
+      return send(res, 200, { name: 'behind-everything', api: ['/api/health', '/api/sessions', '/api/sessions/:id/events', '/api/sessions/:id/export', '/api/import', '/api/events/:id', '/api/events/:id/evidence', '/ws'] });
     } catch (err) {
       return send(res, 500, { error: String(err) });
     }
@@ -96,6 +119,26 @@ export function createServer(opts: ServerOptions) {
 
 /** Hook calls are small JSON objects; anything else is refused without being parsed. */
 const MAX_HOOK_BODY = 256 * 1024;
+/** A shared session file: a long session with outputs and diffs is a few megabytes. */
+const MAX_IMPORT_BODY = 64 * 1024 * 1024;
+
+/** Reads a JSON body up to `max` bytes, answering 413/415/400 itself when it cannot. */
+function readJson(req: http.IncomingMessage, res: http.ServerResponse, max: number, then: (body: unknown) => void) {
+  if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'expected application/json' });
+  const chunks: Buffer[] = [];
+  let size = 0, over = false;
+  req.on('data', (c: Buffer) => {
+    size += c.length;
+    if (size > max && !over) { over = true; send(res, 413, { error: 'too large' }); req.destroy(); }
+    if (!over) chunks.push(c);
+  });
+  req.on('end', () => {
+    if (over) return;
+    let body: unknown;
+    try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(res, 400, { error: 'invalid JSON' }); }
+    then(body);
+  });
+}
 
 function receiveHook(req: http.IncomingMessage, res: http.ServerResponse, assistant: string, hook: ServerOptions['hook']) {
   if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'expected application/json' });
