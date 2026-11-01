@@ -1,5 +1,6 @@
-import { Check, Minus, X } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { Check, Download, Minus, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { ShareBundle, ShareOptions } from '../../../src/core/share.ts';
 import type { SessionState } from '../../../src/core/state.ts';
 import { assistantMeta, SOURCE_INFO } from '../lib/meta.ts';
 import { store, useApp } from '../lib/store.ts';
@@ -88,6 +89,67 @@ export function ShortcutsDialog() {
       <table className="cap-table"><tbody>
         {SHORTCUTS.map(([k, d]) => <tr key={k}><td style={{ width: 120 }}>{k.split(' / ').map((x, i) => <span key={x}>{i > 0 && ' / '}<kbd>{x}</kbd></span>)}</td><td>{d}</td></tr>)}
       </tbody></table>
+    </Dialog>
+  );
+}
+
+/** "report-fix-date-parser.behind-everything.json": readable, safe on every file system. */
+const fileName = (title?: string) => `${(title ?? 'session').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'session'}.behind-everything.json`;
+
+const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+export function ShareDialog() {
+  const show = useApp(s => s.showShare);
+  const session = useApp(s => s.sessions.find(x => x.id === s.sessionId));
+  const [options, setOptions] = useState<ShareOptions>({ prompts: true, outputs: true, diffs: true });
+  const [bundle, setBundle] = useState<{ json: string; b: ShareBundle } | { error: string } | undefined>();
+  useEffect(() => {
+    if (!show) return;
+    let live = true;
+    setBundle(undefined);
+    store.exportSession(options).then(b => live && setBundle({ json: JSON.stringify(b), b }), err => live && setBundle({ error: String(err) }));
+    return () => { live = false; };
+  }, [show, options, session?.id]);
+  if (!show || !session) return null;
+  const download = () => {
+    if (!bundle || 'error' in bundle) return;
+    const url = URL.createObjectURL(new Blob([bundle.json], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: fileName(session.title) });
+    a.click();
+    URL.revokeObjectURL(url);
+    store.toggleShare(false);
+    store.notify('ok', `Saved ${a.download}. Anyone can open it in Behind Everything with "Open a shared session".`);
+  };
+  const toggle = (k: keyof ShareOptions) => setOptions(o => ({ ...o, [k]: !o[k] }));
+  const stats = bundle && !('error' in bundle) ? bundle.b.stats : undefined;
+  return (
+    <Dialog title="Share this session" onClose={() => store.toggleShare(false)}>
+      <p style={{ margin: 0 }}>Save the session as a file that anyone can open in their own Behind Everything, with the 3D map, timeline and replay.</p>
+      <fieldset className="share-options">
+        <legend>Include</legend>
+        <label><input type="checkbox" checked={options.prompts} onChange={() => toggle('prompts')} /> Prompts and assistant messages</label>
+        <label><input type="checkbox" checked={options.outputs} onChange={() => toggle('outputs')} /> Command and tool output</label>
+        <label><input type="checkbox" checked={options.diffs} onChange={() => toggle('diffs')} /> File diffs</label>
+      </fieldset>
+      <section className="share-preview" aria-live="polite" aria-label="What the file contains">
+        {!bundle && <p className="muted">Preparing the file…</p>}
+        {bundle && 'error' in bundle && <p className="error-text">Could not prepare the file: {bundle.error}</p>}
+        {stats && bundle && !('error' in bundle) && (
+          <ul>
+            <li><Check size={14} aria-hidden /> {stats.events.toLocaleString()} events, {kb(bundle.json.length)}</li>
+            <li><Check size={14} aria-hidden /> {stats.redacted_at_capture + stats.redacted} secret{stats.redacted_at_capture + stats.redacted === 1 ? '' : 's'} redacted{stats.redacted ? ` (${stats.redacted} caught just now)` : ''}</li>
+            <li><Check size={14} aria-hidden /> {stats.paths_shortened} path{stats.paths_shortened === 1 ? '' : 's'} shortened: your home folder becomes ~ and the project folder only its name</li>
+            {(stats.left_out.prompts || stats.left_out.outputs || stats.left_out.diffs) ? (
+              <li><Minus size={14} aria-hidden /> Left out: {[stats.left_out.prompts && `${stats.left_out.prompts} prompts and messages`, stats.left_out.outputs && `${stats.left_out.outputs} outputs`, stats.left_out.diffs && `${stats.left_out.diffs} diffs`].filter(Boolean).join(', ')}</li>
+            ) : null}
+            <li><X size={14} aria-hidden /> Never included: the model's reasoning, raw log records, and where files live on your machine</li>
+          </ul>
+        )}
+      </section>
+      <div className="dialog-actions">
+        <button className="btn" onClick={() => store.toggleShare(false)}>Cancel</button>
+        <button className="btn primary" onClick={download} disabled={!stats}><Download size={15} aria-hidden /> Download {fileName(session.title)}</button>
+      </div>
     </Dialog>
   );
 }

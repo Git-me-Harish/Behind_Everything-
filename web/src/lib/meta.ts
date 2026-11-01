@@ -171,3 +171,6 @@ export function agentColor(agents: Record<string, AgentState>, id: string, assis
 export function mascotOf(agents: Record<string, AgentState>, id: string, assistant?: string): MascotId | 'clawd' | undefined {
   return mascotFor(assistant ?? 'claude-code', id === 'main', Object.keys(agents).filter(a => a !== 'main').indexOf(id));
 }
+
+/** A session opened from a file someone shared (see src/core/share.ts): read-only, removable. */
+export const isShared = (sessionId: string) => sessionId.startsWith('shared:');

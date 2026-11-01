@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
-import { CoverageDialog, ShortcutsDialog } from './components/Dialogs.tsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CoverageDialog, ShareDialog, ShortcutsDialog } from './components/Dialogs.tsx';
+import { Welcome } from './components/Welcome.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { Agents, Attention, SessionHeader } from './components/Overview.tsx';
 import { ReplayBar } from './components/ReplayBar.tsx';
@@ -31,6 +32,28 @@ export function App() {
 
   useEffect(() => { void store.start(); }, []);
   useWaitingAlerts();
+  const notice = useApp(s => s.notice);
+
+  // One file picker for "Open a shared session", wherever it is asked for; dropping a file on the window works too.
+  const picker = useRef<HTMLInputElement>(null);
+  const openFile = () => picker.current?.click();
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const hasFile = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+    const over = (e: DragEvent) => { if (hasFile(e)) { e.preventDefault(); setDragging(true); } };
+    const leave = (e: DragEvent) => { if (!e.relatedTarget) setDragging(false); };
+    const drop = (e: DragEvent) => {
+      if (!hasFile(e)) return;
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer?.files[0];
+      if (file) void store.importFile(file);
+    };
+    window.addEventListener('dragover', over);
+    window.addEventListener('dragleave', leave);
+    window.addEventListener('drop', drop);
+    return () => { window.removeEventListener('dragover', over); window.removeEventListener('dragleave', leave); window.removeEventListener('drop', drop); };
+  }, []);
 
   // While replaying, everything reflects the session as it was at the cursor.
   const limitSeq = cursor === null ? null : cursor === 0 ? 0 : events[cursor - 1]?.seq ?? null;
@@ -46,7 +69,7 @@ export function App() {
   return (
     <div className={`app${selection ? '' : ' no-inspector'}${expanded ? ' map-expanded' : ''}${sidebar ? '' : ' side-closed'}`}>
       <TopBar theme={theme} setTheme={setTheme} sessionsOpen={narrow ? drawer : sidebar} narrow={narrow} />
-      <SessionList open={narrow ? drawer : sidebar} onPick={() => store.closeDrawer()} />
+      <SessionList open={narrow ? drawer : sidebar} onPick={() => store.closeDrawer()} onOpenFile={openFile} />
       {narrow && drawer && <div className="drawer-scrim" aria-hidden onClick={() => store.closeDrawer()} />}
       <main className="main" aria-label="Session overview">
         {connection === 'offline' && <div className="banner" role="alert">Can’t reach the collector. Is <span className="mono">behind-everything</span> still running? Retrying…</div>}
@@ -56,12 +79,7 @@ export function App() {
             <button className="link" onClick={() => store.goLive()}>Go live</button>
           </div>
         )}
-        {!sessionId && sessionsLoaded && (
-          <div className="empty" style={{ marginTop: 80 }}>
-            <h2>Waiting for your first session</h2>
-            <p>Open Claude Code, Codex or Copilot CLI in any project and start working. Its activity appears here live. Nothing to configure.</p>
-          </div>
-        )}
+        {!sessionId && sessionsLoaded && <Welcome onOpenFile={openFile} />}
         {sessionId && (
           <>
             <SessionHeader view={view} />
@@ -79,6 +97,10 @@ export function App() {
       <ReplayBar />
       <CoverageDialog view={view} />
       <ShortcutsDialog />
+      <ShareDialog />
+      <input ref={picker} type="file" accept=".json,application/json" hidden aria-hidden onChange={e => { const f = e.target.files?.[0]; if (f) void store.importFile(f); e.target.value = ''; }} />
+      {dragging && <div className="drop-overlay" aria-hidden><div>Drop a shared session file to open it</div></div>}
+      {notice && <div className={`notice ${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{notice.text}</div>}
     </div>
   );
 }
