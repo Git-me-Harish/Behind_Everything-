@@ -48,7 +48,8 @@
     "site:build": "vite build --config site/vite.config.ts",
     "site:preview": "vite preview --config site/vite.config.ts",
     "site:assets": "tsx scripts/site-assets.ts",
-    "test:site": "playwright test --config playwright.site.config.ts"
+    "test:site": "playwright test --config playwright.site.config.ts",
+    "site": "pnpm site:build && pnpm site:preview"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

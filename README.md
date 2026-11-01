@@ -112,7 +112,8 @@ The website lives in `site/` and reuses the app's own renderer, mascots and them
 playing a scripted session.
 
 ```sh
-pnpm site:dev       # http://localhost:5174/Behind_Everything-/
+pnpm site           # build and open the production site at http://localhost:4174/Behind_Everything-/
+pnpm site:dev       # hot reload at http://localhost:5174/Behind_Everything-/
 pnpm site:build     # into dist-site/ (SITE_BASE=/ for a root domain)
 pnpm test:site      # browser tests against the build
 BE_SITE_SHOTS=1 pnpm test:e2e e2e/site-shots.e2e.ts   # regenerate the feature screenshots from the app
