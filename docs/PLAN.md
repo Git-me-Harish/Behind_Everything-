@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world, with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.8 · 2026-11-01. Phases 0–4 delivered; Phase 5a (launch: one-command install, product site, release automation) delivered; next: Phase 5b (redacted export, onboarding, troubleshooting, performance budgets)
+Status: v0.9 · 2026-11-01. Phases 0–5 delivered: three assistants, the hook bridge, the product site, one-command install, sharing, first-run, doctor and a measured performance budget
 
 ---
 
@@ -277,7 +277,7 @@ docs/            PLAN, CAPABILITIES
 
 **Phase 5: Hardening & packaging**
 - 5a, launch (delivered, notes below): `npx` package, product site, release automation.
-- 5b, next: redacted session export with preview, first-run onboarding, troubleshooting docs, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), Copilot Chat in VS Code if a supported surface exists.
+- 5b (delivered, notes below): redacted session export with preview, first-run onboarding, troubleshooting docs, performance budgets (collector < 1 % CPU idle, < 120 MB RAM).
 
 **Phase 5a: delivered notes (launch)**
 - **One command.** `npx behind-everything` is the install: the package ships only `dist/` (CLI, collector and the built app), and CI packs it and runs it with npx from an empty folder on every change. It requires Node.js 22 or newer: better-sqlite3 publishes prebuilt binaries for Node 22 and 24 on Windows, macOS and Linux, but none for Node 20 (end of life), where it would need a C++ toolchain. The CLI warns on older Node instead of refusing.
@@ -285,6 +285,14 @@ docs/            PLAN, CAPABILITIES
 - **Generated, not hand-made.** Feature screenshots come from the app running the synthetic sessions (`BE_SITE_SHOTS=1`, clock fixed so times read naturally, cropped to the feature at 2×); the hero poster and the social card come from the site itself (`pnpm site:assets`).
 - **Tested like the product.** Site browser tests on Chromium and WebKit: content and live hero, every image and anchor, copy button, theme toggle, mobile menu, no sideways scrolling at 360 to 1440 px, reduced motion. Found on the way: screen-reader-only labels inside the scrolling capability table widened the page on phones (absolutely positioned, so they escaped the scroll container).
 - **Release.** Pushing a `v*` tag checks, builds and publishes to npm with provenance and creates the GitHub release (needs an `NPM_TOKEN` secret). Pages must be enabled once with GitHub Actions as the source.
+
+**Phase 5b: delivered notes (sharing, first run, doctor, performance)**
+- **Performance budget, measured first.** \`pnpm perf\` (and a CI job) writes 30 synthetic sessions (about 90,000 events, 56 MB of logs), starts the built package and measures a quiet minute. It found idle CPU at 1.46 % of a core, over the 1 % budget; a CPU profile showed the cost was polling every log file once a second, and a file \`stat\` is slow on Windows. Polling backs up the operating system's file notifications, so quiet files are now checked every 15 seconds (live ones still every second): idle CPU 0.26 %, memory 78 MB. The first read of that much history takes about 15 s and briefly peaks around 150 MB.
+- **\`behind-everything doctor\`** checks Node.js, the data folder and SQLite, the port (Behind Everything running, something else holding it, or free), each assistant's logs and how recent they are, and the hook (installed, right port, Codex trust), with the fix for anything off. Health now reports the version and the collector's own footprint.
+- **Sharing.** Share exports a session as a versioned file: events redacted again (on top of capture-time redaction), the home folder shortened to \`~\`, the project folder reduced to its name, raw log references and source paths dropped, and prompts, output and diffs optional, with a live preview of exactly what goes in. Open a shared session (picker, drop on the window, or \`behind-everything open <file>\`) adds it read-only under a \`shared:\` id, removable, with the full map, timeline and replay.
+- **First run.** With no sessions yet, a welcome screen shows which assistants are set up on this machine (or which variable to set), three steps to a first session, and three bundled demo sessions (one per assistant, synthetic) to explore.
+- **Troubleshooting guide** (\`docs/TROUBLESHOOTING.md\`): nothing shows up, will not start, browser, approvals, sharing, performance, starting over, reporting a problem.
+- Not done, by decision: Copilot Chat in VS Code. Its history is an undocumented internal format; the Copilot CLI agent, including when VS Code hosts it, is covered.
 
 ---
 

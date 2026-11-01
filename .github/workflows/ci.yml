@@ -120,3 +120,22 @@ jobs:
           curl -sf http://127.0.0.1:47977/api/health
           curl -sf http://127.0.0.1:47977/ | grep -q '<title>Behind Everything</title>'
           npx --yes --package "$(ls "$RUNNER_TEMP"/behind-everything-*.tgz)" behind-everything hooks --help | grep -q 'hooks <install'
+
+  perf:
+    name: performance budget (idle CPU, memory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # 30 sessions, about 90,000 events: idle CPU under 1 % of a core and memory under 120 MB, or the job fails.
+      - run: pnpm perf
+        env:
+          PERF_IDLE_S: '30'
