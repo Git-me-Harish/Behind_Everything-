@@ -45,7 +45,7 @@ describe('hook installer', () => {
   it('refuses to touch a config it cannot parse', () => {
     const file = path.join(dir, 'settings.json');
     fs.writeFileSync(file, '{ "hooks": ');
-    expect(() => install('claude-code', { port: 1, forwarder: forwarder() }, file)).toThrow(/not valid JSON.*nothing was changed/);
+    expect(() => install('claude-code', { port: 1, forwarder: forwarder() }, file)).toThrow(/not valid JSON.*Nothing was changed/);
     expect(fs.readFileSync(file, 'utf8')).toBe('{ "hooks": ');
   });
 

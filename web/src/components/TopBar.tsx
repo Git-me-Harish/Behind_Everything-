@@ -43,7 +43,7 @@ export function TopBar({ theme, setTheme, sessionsOpen, narrow }: { theme: Theme
         {narrow ? <Menu size={16} /> : sessionsOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
       </button>
       <div className="brand"><BrandMark /> <span className="brand-name">Behind Everything</span></div>
-      <span className="tag hide-narrow" title={`Capture: reading ${meta.logs} — no configuration, read-only${source?.hooks?.installed ? '; approval prompts arrive live through the hook bridge' : ''}`}>
+      <span className="tag hide-narrow" title={`Capture: reading ${meta.logs}, no configuration, read-only${source?.hooks?.installed ? '; approval prompts arrive live through the hook bridge' : ''}`}>
         {meta.name} · log{source?.hooks?.installed ? ' + hook' : ''}
       </span>
       <div className="spacer" />

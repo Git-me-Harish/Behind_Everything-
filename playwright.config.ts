@@ -52,7 +52,7 @@ export default defineConfig({
     // SwiftShader allowed explicitly, and headless Firefox on Linux blocklists its software WebGL.
     launchOptions: process.env.PW_BROWSER === 'firefox' ? { firefoxUserPrefs: { 'webgl.force-enabled': true } }
       : process.env.PW_BROWSER === 'webkit' ? {} : { args: ['--enable-unsafe-swiftshader'] },
-    // CI runs Firefox headed on a virtual display (xvfb) — the only way it gets WebGL on a GPU-less Linux runner.
+    // CI runs Firefox headed on a virtual display (xvfb): the only way it gets WebGL on a GPU-less Linux runner.
     headless: !process.env.PW_HEADED,
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',

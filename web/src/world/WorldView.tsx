@@ -1,8 +1,8 @@
 import { CircleHelp, LocateFixed, Maximize2, Minimize2, Minus, Plus, Scan } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { SessionState, ZoneId } from '../../../src/core/state.ts';
 import { pickAgent, toggleZone, ZONE_ICON, zoneDot } from '../components/Overview.tsx';
-import { ClawdIcon, zoneVars } from '../components/ui.tsx';
+import { AgentMascot, zoneVars } from '../components/ui.tsx';
 import { assistantMeta, PHASE_LABEL, ZONE, ZONE_LAYOUT } from '../lib/meta.ts';
 import { store, useApp, useAssistant } from '../lib/store.ts';
 import { World, type LabelPos } from './engine.ts';
@@ -17,7 +17,7 @@ const densityFor = (roomPx: number): Density => (roomPx < 84 ? 'tiny' : roomPx <
 
 const HINTS = {
   wheel: 'Use Ctrl + scroll (or pinch) to zoom the map',
-  touch: 'Use two fingers to move the map — or expand it',
+  touch: 'Use two fingers to move the map, or expand it',
 } as const;
 
 function useReducedMotion() {
@@ -33,7 +33,7 @@ function useReducedMotion() {
 
 /**
  * The isometric workspace. three.js draws the building and the agents; everything you read or click
- * — room labels, agent tags, controls — is ordinary DOM laid over it, so it stays sharp, accessible
+ * (room labels, agent tags, controls) is ordinary DOM laid over it, so it stays sharp, accessible
  * and keyboard-reachable.
  */
 export default function WorldView({ view, onFail }: { view: SessionState; onFail: (reason: string) => void }) {
@@ -68,10 +68,15 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
         zone: toggleZone,
         agent: id => pickAgent(id, modelRef.current.agents.find(a => a.id === id)?.call_id),
         labels: (pos: Map<string, LabelPos>, roomPx: number) => {
+          const placement = layoutLabels(pos, labels.current);
           for (const [key, p] of pos) {
             const el = labels.current.get(key);
             if (!el) continue;
-            el.style.transform = `translate3d(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px, 0) translate(-50%, -100%)`;
+            const at = placement.get(key);
+            el.style.transform = at?.below
+              ? `translate3d(${p.x.toFixed(1)}px, ${(p.foot! + 6).toFixed(1)}px, 0) translate(-50%, 0)`
+              : `translate3d(${p.x.toFixed(1)}px, ${(p.y + (at?.dy ?? 0)).toFixed(1)}px, 0) translate(-50%, -100%)`;
+            el.classList.toggle('below', !!at?.below);
             el.style.visibility = p.on ? '' : 'hidden';
           }
           const d = densityFor(roomPx);
@@ -157,7 +162,7 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
       tabIndex={0}
       role="group"
       aria-roledescription="map"
-      aria-label="Workspace map — arrow keys move, + and − zoom, 0 resets. Rooms and agents are buttons."
+      aria-label="Workspace map. Arrow keys move, + and − zoom, 0 resets. Rooms and agents are buttons."
     >
       <canvas ref={canvas} aria-hidden />
       <div className="wl-layer">
@@ -202,7 +207,7 @@ export default function WorldView({ view, onFail }: { view: SessionState; onFail
       {model.hiddenAgents > 0 && <span className="chip world-more">+{model.hiddenAgents} more agents</span>}
       {legend && <Legend assistant={assistant} onClose={() => setLegend(false)} />}
       {hint && <div className="world-hint" role="status">{HINTS[hint]}</div>}
-      {lost && <div className="world-hint" role="status">Graphics paused by the browser — restoring…</div>}
+      {lost && <div className="world-hint" role="status">Graphics paused by the browser. Restoring…</div>}
       {new URLSearchParams(location.search).has('debug') && <DebugHud />}
     </div>
   );
@@ -216,15 +221,15 @@ function AgentTag({ a, pressed, ref }: { a: AgentModel; pressed: boolean; ref: (
       className={`wl wl-agent${a.finished ? ' finished' : ''}${a.inferred ? ' inferred' : ''}`}
       style={{ '--ac': a.color, visibility: 'hidden' } as CSSProperties}
       aria-pressed={pressed}
-      aria-label={`${a.label}: ${a.inferred ? 'probably ' : ''}${phase}${a.summary ? ` — ${a.summary}` : ''}`}
+      aria-label={`${a.label}: ${a.inferred ? 'probably ' : ''}${phase}${a.summary ? `, ${a.summary}` : ''}`}
       title={a.summary ?? phase}
       onClick={() => pickAgent(a.id, a.call_id)}
     >
       {a.thinking && <span className="bubble" aria-hidden><i /><i /><i /></span>}
       {a.waiting && <span className="bubble ask" aria-hidden>?</span>}
       <span className="agent-tag">
-        {a.avatar === 'clawd' && a.main
-          ? <span className="initial mascot" aria-hidden><ClawdIcon color={a.color} /></span>
+        {a.avatar !== 'person'
+          ? <span className="initial mascot" aria-hidden><AgentMascot mascot={a.avatar} color={a.color} /></span>
           : <span className="initial" aria-hidden>{a.initial}</span>}
         <span className="name">{a.label}</span>
         <span className="phase">{a.inferred ? '~ ' : ''}{phase}</span>
@@ -234,6 +239,12 @@ function AgentTag({ a, pressed, ref }: { a: AgentModel; pressed: boolean; ref: (
   );
 }
 
+const MASCOT_LEGEND: Record<string, ReactNode> = {
+  'claude-code': <><b>Claude</b> is its pixel crab; subagents are smaller crabs in their own colours. They scuttle to the room of what they are doing now, type while a tool runs and wave while waiting for you.</>,
+  codex: <><b>Codex</b> is the blue cloud in a beret; its subagents are the heart, the frog and the triangle. They hop to the room of what they are doing now, wobble while a tool runs and bounce while waiting for you.</>,
+  'copilot-cli': <><b>Copilot</b> is the goggled head; subagents are smaller heads in their own colours. It glides to the room of what it is doing now and rocks while waiting for you.</>,
+};
+
 function Legend({ assistant, onClose }: { assistant: string; onClose: () => void }) {
   const meta = assistantMeta(assistant);
   return (
@@ -241,9 +252,7 @@ function Legend({ assistant, onClose }: { assistant: string; onClose: () => void
       <header><b>Reading the map</b><button className="link" onClick={onClose}>Close</button></header>
       <ul>
         <li><b>Rooms</b> are the zones of the work. A coloured light on the back wall shows each room’s status; a ripple crosses the floor when something happens there.</li>
-        {assistant === 'claude-code'
-          ? <li><b>Claude</b> is its pixel mascot; its subagents are smaller ones, each in its own colour. They walk to the room of what they are doing now — and type while a tool runs. Dots above a head: thinking. <b>?</b> and a wave: waiting for you.</li>
-          : <li><b>{meta.agent}</b> is the figure in its colour. It walks to the room of what it is doing now. Dots above its head: thinking. <b>?</b>: waiting for you.</li>}
+        <li>{MASCOT_LEGEND[assistant] ?? <><b>{meta.agent}</b> is the figure in its colour and walks to the room of what it is doing now.</>} Dots above a head: thinking. <b>?</b>: waiting for you.</li>
         <li><b>Props are real counts</b>: books = files read, notes = plan items, lit monitors = files changed, tubes = test and check verdicts, crates = files ready for review, lamps in the Repair Bay = failures and reruns.</li>
         <li><b>Dashed</b> outlines and <b>~</b> mean inferred from a pattern, not read directly. The Approval Gate’s barrier is down while something waits for you.</li>
         <li>Drag to move · Ctrl+scroll or pinch to zoom · click a room or a person for details.</li>
@@ -265,4 +274,49 @@ function DebugHud() {
       {`fps ${s.fps}  frames ${s.frames}\ndraws ${s.drawCalls}  tris ${s.triangles}\ndpr ${s.dpr}  event→pixel ${s.eventToPixelMs?.toFixed(0) ?? '–'} ms`}
     </pre>
   );
+}
+
+/** Room for the thought or question bubble that floats above an agent's tag. */
+const BUBBLE_PX = 24;
+const MAX_NUDGE_PX = 40;
+
+interface Placement { dy: number; below?: boolean }
+interface Rect { left: number; right: number; top: number; bottom: number }
+const overlaps = (a: Rect, b: Rect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
+/**
+ * Keeps every name on the map readable. Room labels are placed back to front, and one that would cover a label already
+ * placed moves down just clear of it. An agent tag that would cover a room's name drops below the agent's feet
+ * instead (waiting at the Approval Gate, say). Sizes are read before any position is written, so this costs no
+ * extra layout.
+ */
+function layoutLabels(pos: Map<string, LabelPos>, els: Map<string, HTMLElement>): Map<string, Placement> {
+  const out = new Map<string, Placement>();
+  const rect = (key: string, extraTop = 0): Rect | undefined => {
+    const p = pos.get(key), el = els.get(key);
+    if (!p?.on || !el) return undefined;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    return { left: p.x - w / 2, right: p.x + w / 2, top: p.y - h - extraTop, bottom: p.y };
+  };
+  const placed: Rect[] = [];
+  const rooms = [...pos.keys()].filter(k => k.startsWith('zone:')).sort((a, b) => pos.get(a)!.y - pos.get(b)!.y);
+  for (const key of rooms) {
+    const r = rect(key);
+    if (!r) continue;
+    let dy = 0;
+    for (let guard = 0; guard < 4; guard++) {
+      const hit = placed.find(o => overlaps({ ...r, top: r.top + dy, bottom: r.bottom + dy }, o));
+      if (!hit) break;
+      dy = Math.min(MAX_NUDGE_PX, hit.bottom - r.top + 3);
+      if (dy >= MAX_NUDGE_PX) break;
+    }
+    placed.push({ ...r, top: r.top + dy, bottom: r.bottom + dy });
+    if (dy) out.set(key, { dy });
+  }
+  for (const key of pos.keys()) {
+    if (!key.startsWith('agent:')) continue;
+    const a = rect(key, BUBBLE_PX), foot = pos.get(key)?.foot;
+    if (a && foot !== undefined && placed.some(o => overlaps(a, o))) out.set(key, { dy: 0, below: true });
+  }
+  return out;
 }

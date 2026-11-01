@@ -27,7 +27,7 @@ export interface AgentState {
   activity?: { call_id?: string; kind: EventKind; summary: string; started_at: string };
   /**
    * Where the agent is in the workspace. Follows the phase, except that thinking happens wherever the
-   * agent already is — only a new prompt calls it back to Mission Control.
+   * agent already is; only a new prompt calls it back to Mission Control.
    */
   zone: ZoneId;
   finished: boolean;
@@ -104,7 +104,7 @@ export function initialState(session_id: string): SessionState {
   return s;
 }
 
-/** The phase an agent is in while one of its calls runs — where it returns to after an approval. */
+/** The phase an agent is in while one of its calls runs, where it returns to after an approval. */
 const ACTIVITY_PHASE: Partial<Record<EventKind, Phase>> = {
   'file.read': 'exploring', 'file.search': 'exploring', 'file.edit': 'implementing', 'test.run': 'testing', 'build.run': 'testing',
   'web.fetch': 'researching', 'plan.update': 'planning', 'subagent.start': 'delegating',
@@ -126,7 +126,7 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
   // A permission decision belongs to a call that is still running: it neither ends nor becomes the activity.
   const decision = e.kind === 'permission.decision';
   if (finished && callId && !decision) {
-    // A call that ran (or was refused) is no longer waiting for approval — the hook bridge reports only the wait.
+    // A call that ran (or was refused) is no longer waiting for approval; the hook bridge reports only the wait.
     if (s.approvals.pending[`perm:${callId}`]) {
       delete s.approvals.pending[`perm:${callId}`];
       resolve(s, `perm:${callId}`);
@@ -179,7 +179,7 @@ export function applyEvent(s: SessionState, e: CanonicalEvent): SessionState {
         s.totals.added += added;
         s.totals.removed += removed;
         const n = (s.turn.edits[r.ref] = (s.turn.edits[r.ref] ?? 0) + 1);
-        if (n === EDIT_LOOP_THRESHOLD) attend(s, `loop:${s.turn.index}:${r.ref}`, 'warn', `${r.ref} edited ${n} times this turn — possible loop`, e, 'inferred');
+        if (n === EDIT_LOOP_THRESHOLD) attend(s, `loop:${s.turn.index}:${r.ref}`, 'warn', `${r.ref} edited ${n} times this turn, possibly a loop`, e, 'inferred');
       }
       break;
     case 'test.run': case 'build.run': {
@@ -394,6 +394,6 @@ function refreshZones(s: SessionState) {
     s.turn.index && !s.turn.open ? (openIssues ? 'warn' : 'ok') : 'idle');
 }
 
-/** "1 FILE", "3 FILES" — zone labels read as sentences. */
+/** "1 FILE", "3 FILES": zone labels read as sentences. */
 const plural = (n: number, one: string, many = `${one}S`) => `${n} ${n === 1 ? one : many}`;
 

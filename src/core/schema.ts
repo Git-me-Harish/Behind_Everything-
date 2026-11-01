@@ -35,7 +35,7 @@ export const CanonicalEvent = z.object({
   id: z.string(),
   session_id: z.string(),
   turn_id: z.string().optional(),
-  /** 'main' or a subagent id — each agent gets its own avatar. */
+  /** 'main' or a subagent id; each agent gets its own avatar. */
   agent_id: z.string(),
   ts: z.string(),
   assistant: Assistant,

@@ -8,7 +8,7 @@ import { DEFAULT_PORT, startCollector } from './collector/index.js';
 import type { StoredEvent } from './collector/store.js';
 import { runHooks } from './hooks/cli.js';
 
-const HELP = `behind-everything — see what your AI coding agent is actually doing
+const HELP = `behind-everything: see what your AI coding agent is actually doing
 
 Usage: behind-everything [options]
        behind-everything hooks <install | uninstall | status>   (see: hooks --help)
@@ -91,7 +91,7 @@ try {
     process.stdout.write(`Open ${paint(36, c.url)} to see it live\n`);
     if (!values['no-open'] && !process.env.BE_DEV_ORIGIN) openBrowser(c.url);
   } else {
-    process.stdout.write(paint(33, "UI not built yet — run 'pnpm build:web'. The API works meanwhile.\n"));
+    process.stdout.write(paint(33, "UI not built yet. Run 'pnpm build:web'. The API works meanwhile.\n"));
   }
   process.stdout.write(paint(90, 'Waiting for live activity… (Ctrl+C to stop)\n'));
   const stop = async () => { await c.close(); process.exit(0); };
@@ -99,7 +99,7 @@ try {
   process.on('SIGTERM', stop);
 } catch (err) {
   if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
-    process.stderr.write(`Port ${port} is already in use — is Behind Everything already running? Try --port.\n`);
+    process.stderr.write(`Port ${port} is already in use. Is Behind Everything already running? Try --port.\n`);
     process.exit(1);
   }
   throw err;

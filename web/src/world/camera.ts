@@ -38,7 +38,7 @@ export function unproject(v: View, vp: Viewport, px: number, py: number) {
   return { x: v.x + (px - vp.width / 2) / v.zoom, y: v.y - (py - vp.height / 2) / v.zoom };
 }
 
-/** Zooms by `factor` keeping the point under (px, py) where it is — wheel, pinch and +/- buttons. */
+/** Zooms by `factor` keeping the point under (px, py) where it is: wheel, pinch and +/- buttons. */
 export function zoomAround(v: View, vp: Viewport, factor: number, px: number, py: number, limits: { min: number; max: number }): View {
   const zoom = Math.min(limits.max, Math.max(limits.min, v.zoom * factor));
   const anchor = unproject(v, vp, px, py);

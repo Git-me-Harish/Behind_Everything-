@@ -4,7 +4,7 @@ import { store, useApp } from './store.ts';
 import type { SessionRow } from './types.ts';
 
 /**
- * Tells you when an agent is waiting for you — an approval or a question — in any session, not just the one on
+ * Tells you when an agent is waiting for you (an approval or a question) in any session, not just the one on
  * screen: a count in the tab title always, and a desktop notification if you turned them on.
  */
 

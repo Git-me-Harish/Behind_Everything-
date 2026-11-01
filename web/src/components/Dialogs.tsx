@@ -35,7 +35,7 @@ export function CoverageDialog({ view }: { view: SessionState }) {
   const source = health?.sources.find(x => x.assistant === assistant);
   const hooks = source?.hooks;
   return (
-    <Dialog title="Coverage — what we can and cannot see" onClose={() => store.toggleCoverage(false)}>
+    <Dialog title="Coverage: what we can and cannot see" onClose={() => store.toggleCoverage(false)}>
       <p style={{ margin: 0 }}>
         Behind Everything shows what the assistant records about its own work. Every signal is labelled:
       </p>
@@ -66,10 +66,10 @@ export function CoverageDialog({ view }: { view: SessionState }) {
   );
 }
 
-/** Installed or not, and whether it is actually delivering — the honest state, with the next step when there is one. */
+/** Installed or not, and whether it is actually delivering: the honest state, with the next step when there is one. */
 function hookLine(h: HookHealth): string {
-  if (!h.installed) return 'Not installed — run `pnpm hooks install` to see approval prompts while they wait';
-  if (!h.port_matches) return 'Installed for another port — run `pnpm hooks install` again';
+  if (!h.installed) return 'Not installed. Run `pnpm hooks install` to see approval prompts while they wait';
+  if (!h.port_matches) return 'Installed for another port. Run `pnpm hooks install` again';
   if (!h.events) return 'Installed · no prompts since Behind Everything started';
   return `Installed · ${h.events} prompt${h.events === 1 ? '' : 's'} received, ${h.matched} shown${h.unmatched ? `, ${h.unmatched} not matched to a call` : ''}`;
 }

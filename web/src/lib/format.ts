@@ -18,6 +18,16 @@ export function duration(ms: number | undefined): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
+/** "now", "5m", "22h", "3d": for tight spaces such as the sessions list. */
+export function shortAgo(ts: string | undefined, now: number): string {
+  if (!ts) return '';
+  const s = Math.max(0, (now - Date.parse(ts)) / 1000);
+  if (s < 60) return 'now';
+  if (s < 3600) return `${Math.round(s / 60)}m`;
+  if (s < 86400) return `${Math.round(s / 3600)}h`;
+  return `${Math.round(s / 86400)}d`;
+}
+
 export function ago(ts: string | undefined, now: number): string {
   if (!ts) return '';
   const s = Math.max(0, (now - Date.parse(ts)) / 1000);

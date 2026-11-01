@@ -9,7 +9,7 @@ const parse = (jsonl: string) => {
   return jsonl.split('\n').flatMap((l, i) => (l ? p.parse(l, i + 1) : []));
 };
 
-/** Main transcript with the subagent's events spliced in while the Agent call is open — the order the collector sees them. */
+/** Main transcript with the subagent's events spliced in while the Agent call is open, in the order the collector sees them. */
 function arrivalOrder(): CanonicalEvent[] {
   const { main, sub } = demoSession();
   const m = parse(main.jsonl());

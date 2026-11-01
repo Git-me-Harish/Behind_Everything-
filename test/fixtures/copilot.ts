@@ -91,7 +91,7 @@ const PATCH = `*** Begin Patch\n*** Update File: ${at('src/notes.ts')}\n@@\n exp
 
 /**
  * One interaction: explore, plan in the todo table, edit three ways (patch, edit, create), a failing then passing
- * test, a background server, a question, a blocked command, a subagent, an MCP call — then a final answer.
+ * test, a background server, a question, a blocked command, a subagent, an MCP call, then a final answer.
  */
 export function copilotSession() {
   const b = new CopilotLogBuilder();

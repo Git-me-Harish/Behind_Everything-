@@ -1,9 +1,10 @@
 import type { SourceClass } from '../../../src/core/schema.ts';
 import { ZONES, type AgentState, type Phase, type SessionState, type ZoneId, type ZoneStatus } from '../../../src/core/state.ts';
 import { agentColor } from '../lib/meta.ts';
+import { mascotFor, type MascotId } from './mascots.ts';
 
 /**
- * Everything the 3D world shows, derived from SessionState alone — the renderer never reads events.
+ * Everything the 3D world shows, derived from SessionState alone. The renderer never reads events.
  * Props in each room are bound to real counts: books are files read, sticky notes are plan items,
  * monitors are files changed, tubes are test and check verdicts, crates are files ready for review.
  */
@@ -36,8 +37,8 @@ export interface AgentModel {
   initial: string;
   color: string;
   main: boolean;
-  /** Claude Code's agents are its pixel mascot (subagents smaller, in their own colour); others are people. */
-  avatar: 'clawd' | 'person';
+  /** Each assistant's mascot: Claude's pixel crab, Codex's plush cast, Copilot's goggled head; people for any other. */
+  avatar: 'clawd' | MascotId | 'person';
   zone: ZoneId;
   /** Index among the agents in the same room → which station it stands at. */
   slot: number;
@@ -61,13 +62,14 @@ export function worldModel(view: SessionState, assistant = 'claude-code'): World
   const rooms = Object.fromEntries(ZONES.map(id => [id, room(view, id)])) as Record<ZoneId, RoomModel>;
   const { shown, hidden } = visibleAgents(view);
   const perRoom = new Map<ZoneId, number>();
+  const subs = Object.keys(view.agents).filter(id => id !== 'main');
   const agents = shown.map((a): AgentModel => {
     const slot = perRoom.get(a.zone) ?? 0;
     perRoom.set(a.zone, slot + 1);
     return {
       id: a.id, label: a.label, initial: a.id === 'main' ? 'C' : (a.label.trim()[0] ?? 'S').toUpperCase(),
       color: agentColor(view.agents, a.id, assistant), main: a.id === 'main',
-      avatar: assistant === 'claude-code' ? 'clawd' : 'person', zone: a.zone, slot, phase: a.phase,
+      avatar: mascotFor(assistant, a.id === 'main', subs.indexOf(a.id)) ?? 'person', zone: a.zone, slot, phase: a.phase,
       inferred: a.phase_source === 'inferred', busy: !!a.activity && !a.finished,
       thinking: a.phase === 'thinking' && !a.finished, waiting: a.phase === 'awaiting_input', finished: a.finished,
       summary: a.activity?.summary, call_id: a.activity?.call_id,

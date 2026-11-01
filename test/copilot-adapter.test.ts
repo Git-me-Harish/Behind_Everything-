@@ -110,7 +110,7 @@ describe('Copilot CLI adapter', () => {
   });
 });
 
-describe('Copilot CLI adapter — waiting approvals', () => {
+describe('Copilot CLI adapter: waiting approvals', () => {
   const lines = (b: CopilotLogBuilder) => b.jsonl().split('\n').filter(Boolean);
   const begin = () => new CopilotLogBuilder().prompt('Clean up').modelCall()
     .start('c-rm', 'powershell', { command: 'Remove-Item build -Recurse', mode: 'sync' })
@@ -160,7 +160,7 @@ describe('Copilot CLI adapter — waiting approvals', () => {
   });
 });
 
-describe('Copilot CLI adapter — turn edges', () => {
+describe('Copilot CLI adapter: turn edges', () => {
   it('fails the turn when a model call returns nothing and an error follows', () => {
     const b = new CopilotLogBuilder().prompt('Hello').modelCall('', false).endModelCall()
       .raw('session.error', { errorType: 'quota', errorCode: 'quota_exceeded', message: 'You have run out of premium requests', statusCode: 402 });

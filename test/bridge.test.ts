@@ -13,7 +13,7 @@ const parse = (create: (f: string) => { parse(l: string, n: number): CanonicalEv
   return jsonl.split('\n').flatMap((l, i) => (l ? p.parse(l, i + 1) : []));
 };
 
-/** A Claude session whose Bash call is waiting for permission — the hook's view of it, as Claude Code sends it. */
+/** A Claude session whose Bash call is waiting for permission: the hook's view of it, as Claude Code sends it. */
 const claudeAsking = () => new TranscriptBuilder().userPrompt('Clean up').toolUse('t-rm', 'Bash', { command: 'rm -rf build', description: 'Remove the build folder' });
 const claudeHook = (extra: object = {}) => ({
   session_id: SESSION, transcript_path: 'x.jsonl', cwd: CWD, permission_mode: 'default', hook_event_name: 'PermissionRequest',

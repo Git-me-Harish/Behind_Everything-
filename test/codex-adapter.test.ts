@@ -57,7 +57,7 @@ describe('Codex adapter', () => {
     expect(results[1]).toMatchObject({ status: 'succeeded', exit_code: 0, correlation: { call_id: 'call_cell.0' } });
   });
 
-  it('marks a command that asked to leave the sandbox as approved — inferred, since it ran', () => {
+  it('marks a command that asked to leave the sandbox as approved (inferred, since it ran)', () => {
     const perm = byKind(events, 'permission.decision');
     expect(perm).toHaveLength(1);
     expect(perm[0]).toMatchObject({ status: 'succeeded', source_class: 'inferred', actor: 'user' });
@@ -100,7 +100,7 @@ describe('Codex adapter', () => {
     expect(byKind(es, 'command.run').map(e => [e.status, e.exit_code])).toEqual([['started', undefined], ['succeeded', 0]]);
   });
 
-  it('closes calls the log never finished when the turn ends or is interrupted — marked inferred', () => {
+  it('closes calls the log never finished when the turn ends or is interrupted, marked inferred', () => {
     const { events: es } = parse(new RolloutBuilder().startTurn('t', 'go').exec('call_x', 'npm start').abort().jsonl());
     const end = byKind(es, 'command.run').at(-1)!;
     expect(end).toMatchObject({ status: 'cancelled', source_class: 'inferred' });

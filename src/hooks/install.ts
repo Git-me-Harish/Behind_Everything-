@@ -57,7 +57,7 @@ function read(file: string): Json {
   if (!text) return {};
   let json: unknown;
   try { json = JSON.parse(text); } catch (err) {
-    throw new Error(`${file} is not valid JSON (${(err as Error).message}); fix it first — nothing was changed`);
+    throw new Error(`${file} is not valid JSON (${(err as Error).message}); fix it first. Nothing was changed`);
   }
   if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Error(`${file} does not hold a JSON object; nothing was changed`);
   return json as Json;
