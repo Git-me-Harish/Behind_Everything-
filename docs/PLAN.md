@@ -4,7 +4,7 @@ Working name: **Behind Everything** (product brief: `agent_activity_visualizer_p
 A local-first observability layer that turns what Claude Code, Codex and Copilot *actually do* into a live,
 explorable isometric world, with every signal labelled **observed**, **inferred** or **unavailable**.
 
-Status: v0.7 · 2026-10-31. Phases 0–4 delivered: Claude Code, Codex and Copilot CLI adapters and the opt-in hook bridge (see [CAPABILITIES.md](CAPABILITIES.md)); next: Phase 5 hardening & packaging
+Status: v0.8 · 2026-11-01. Phases 0–4 delivered; Phase 5a (launch: one-command install, product site, release automation) delivered; next: Phase 5b (redacted export, onboarding, troubleshooting, performance budgets)
 
 ---
 
@@ -276,7 +276,15 @@ docs/            PLAN, CAPABILITIES
 - Writing: no em dashes anywhere in the UI, CLI, code or docs.
 
 **Phase 5: Hardening & packaging**
-- Retention + redacted export with preview, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), onboarding, `npx` package, troubleshooting docs, Copilot-in-VS-Code adapter if Phase 0 found a supported surface.
+- 5a, launch (delivered, notes below): `npx` package, product site, release automation.
+- 5b, next: redacted session export with preview, first-run onboarding, troubleshooting docs, performance budgets (collector < 1 % CPU idle, < 120 MB RAM), Copilot Chat in VS Code if a supported surface exists.
+
+**Phase 5a: delivered notes (launch)**
+- **One command.** `npx behind-everything` is the install: the package ships only `dist/` (CLI, collector and the built app), and CI packs it and runs it with npx from an empty folder on every change. It requires Node.js 22 or newer: better-sqlite3 publishes prebuilt binaries for Node 22 and 24 on Windows, macOS and Linux, but none for Node 20 (end of life), where it would need a C++ toolchain. The CLI warns on older Node instead of refusing.
+- **Product site** (`site/`, GitHub Pages). Its hero is the real renderer playing a scripted session with Claude, Codex and Copilot (the same engine, mascots, label layout and theme tokens as the app, loaded after first paint, paused off screen, still under reduced motion, a poster when WebGL is missing). Sections: install, assistants, how it works, five features with real screenshots in both themes, the optional hook, privacy, a capability matrix per assistant, FAQ. Every claim was checked against the code (replay speeds, redaction rules, token support), the copy lives in one file, and tests fail on an em dash, a missing screenshot, an install command or Node version that differs from package.json, or a nav link without a section.
+- **Generated, not hand-made.** Feature screenshots come from the app running the synthetic sessions (`BE_SITE_SHOTS=1`, clock fixed so times read naturally, cropped to the feature at 2×); the hero poster and the social card come from the site itself (`pnpm site:assets`).
+- **Tested like the product.** Site browser tests on Chromium and WebKit: content and live hero, every image and anchor, copy button, theme toggle, mobile menu, no sideways scrolling at 360 to 1440 px, reduced motion. Found on the way: screen-reader-only labels inside the scrolling capability table widened the page on phones (absolutely positioned, so they escaped the scroll container).
+- **Release.** Pushing a `v*` tag checks, builds and publishes to npm with provenance and creates the GitHub release (needs an `NPM_TOKEN` secret). Pages must be enabled once with GitHub Actions as the source.
 
 ---
 
